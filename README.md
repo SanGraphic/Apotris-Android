@@ -39,37 +39,39 @@ Apotris is a feature-rich block stacking game originally built for the Game Boy 
 
 | Requirement | Minimum |
 |---|---|
-| Android version | 5.0 (API 21, Lollipop) |
-| Architecture | arm64-v8a (64-bit ARM) |
-| OpenGL ES | 2.0 |
-| RAM | ~128 MB free |
+| Android version | 5.0 (API 21, Lollipop) — `minSdk` 21 in Gradle |
+| OpenGL ES | 2.0 (declared in the manifest) |
+| RAM | ~128 MB free recommended |
 
-Tested on Android 12–14. Should work on any 64-bit ARM device running Android 5.0+.
+### Which APK for which device?
 
-### CPU architectures (roadmap)
+| Prebuilt APK (`releases/` or nightly) | CPU ABIs included | Use when |
+|---|---|---|
+| **`apotris-arm64-v8a.apk`** | **arm64-v8a** only | Most **phones and tablets from ~2016 onward** (64-bit ARM). Smaller download. |
+| **`apotris-universal.apk`** | **arm64-v8a**, **armeabi-v7a**, **x86**, **x86_64** | **Older 32-bit ARM** devices, **x86/x86_64 emulators**, or if the arm64-only build does not install. Larger download. |
 
-**Default release:** **`build.ps1`** still ships **arm64-v8a** only. A **separate** multi-ABI pipeline (**`build-universal.ps1`**) can produce a fat APK for extra ABIs without touching that path; prebuilt releases may stay arm64-only until CI publishes universal builds.
+**Typical coverage**
 
-- [x] **arm64-v8a** (64-bit ARM) — default (`build.ps1`)
-- [ ] **armeabi-v7a** (32-bit ARM) — optional via **`build-universal.ps1`**; broader release TBD
-- [ ] **x86** — optional via **`build-universal.ps1`**; broader release TBD
-- [ ] **x86_64** — optional via **`build-universal.ps1`**; broader release TBD
-- [x] **Fat universal APK (local)** — **`build-universal.ps1`** (isolated `build-android-universal/` tree)
-- [ ] **Split APKs / Play AAB** — not automated here yet
+- **arm64-v8a** — nearly all current Android phones and many tablets (Snapdragon, MediaTek, Google Tensor, Samsung Exynos 64-bit builds, etc.).
+- **armeabi-v7a** — legacy 32-bit ARM phones and some low-end tablets still on 32-bit userspace.
+- **x86 / x86_64** — Android Studio emulators and rare x86-based devices.
 
-Implementation notes live in [`docs/android-multi-architecture-apk.md`](docs/android-multi-architecture-apk.md).
+**Build scripts:** **`build.ps1`** produces the arm64-v8a-only APK. **`build-universal.ps1`** produces the fat APK (same `minSdk`; isolated `build-android-universal/` tree). Details: [`docs/android-multi-architecture-apk.md`](docs/android-multi-architecture-apk.md).
+
+**Testing:** Smoke-tested on real hardware (Android 12+) and emulators; any device meeting the table above should be compatible. Split APKs / Play **AAB** are not automated in this repo yet.
 
 ---
 
 ## Downloads
 
-Pre-built signed APKs may be published on the [Releases](../../releases) page.
+Tracked, signed APKs live in the repo folder [`releases/`](https://github.com/SanGraphic/Apotris-Android/tree/main/releases) (e.g. **`apotris-arm64-v8a.apk`**, **`apotris-universal.apk`**). The [**nightly** release](https://github.com/SanGraphic/Apotris-Android/releases/tag/nightly) can attach the same files when you run the **Publish nightly GitHub Release** workflow.
 
-**Automated nightlies:** the [Nightly Android build](.github/workflows/nightly-android.yml) workflow runs on a schedule (UTC) and uploads APKs as **workflow artifacts** (Actions → workflow → latest run → Artifacts). You can also start it manually (**Run workflow**). Optional checkbox **Also build multi-ABI universal APK** runs the fat `build-universal.ps1` job (slow).
+**Automated nightlies (CI artifacts):** the [Nightly Android build](.github/workflows/nightly-android.yml) workflow runs on a schedule (UTC) and uploads APKs as **workflow artifacts** (Actions → workflow → latest run → Artifacts). You can also start it manually (**Run workflow**). Optional checkbox **Also build multi-ABI universal APK** runs the fat `build-universal.ps1` job (slow).
 
 | Variant | Description |
 |---|---|
-| `apotris-arm64-v8a.apk` | 64-bit ARM (most modern phones) |
+| `releases/apotris-arm64-v8a.apk` | 64-bit ARM only — most modern phones |
+| `releases/apotris-universal.apk` | Multi-ABI fat APK — see **Supported devices** above |
 
 ### CI signing (optional)
 
