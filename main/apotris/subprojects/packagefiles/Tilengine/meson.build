@@ -65,6 +65,9 @@ lib = static_library(
     pic : true,
 )
 
+# For Android, apotris links this with shared_library(link_whole:) — export the target by name.
+tilengine_static_lib = lib
+
 # Android libmain.so + lld: normal link_with can omit .o from the archive; whole-archive fixes TLN_*.
 if host_machine.system() == 'android'
     tilengine_dep = declare_dependency(link_whole : lib, include_directories : inc)

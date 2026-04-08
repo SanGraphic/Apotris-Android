@@ -248,13 +248,20 @@ if host_machine.system() != 'gba' and host_machine.system() != 'n3ds'
         soloud = dependency('SoLoud', static : true, default_options : ['default_library=static'], fallback : ['SoLoud', 'soloud_dep'])
     endif
 
+    # Android + shared libmain.so: subproject declare_dependency(link_whole) is not always applied by
+    # lld; we pass link_whole on shared_library below and use compile-only Tilengine here.
+    tilengine_for_deps = tilengine
+    if host_machine.system() == 'android' and not get_option('portmaster')
+        tilengine_for_deps = tilengine.partial_dependency(compile_args : true, link_args : false)
+    endif
+
     dependencies = [
         dependency('threads'),
         ogg,
         openmpt,
         sdl_mixer,
         opus,
-        tilengine,
+        tilengine_for_deps,
         sdl2_dep,
         soloud,
     ]
@@ -369,13 +376,25 @@ if host_machine.system() != 'gba' and host_machine.system() != 'n3ds'
         )
     elif host_machine.system() == 'android'
         # Android requires a shared library named libmain.so loaded by SDL's Java glue
-        binary = shared_library(
-            'main',
-            generated_files + sources,
-            include_directories : includes,
-            dependencies : dependencies,
-            link_args : link_args + ['-llog', '-landroid', '-lGLESv2', '-lEGL', '-lOpenSLES'],
-        )
+        tl_sub = subproject('Tilengine', default_options : ['default_library=static'])
+        if get_option('portmaster')
+            binary = shared_library(
+                'main',
+                generated_files + sources,
+                include_directories : includes,
+                dependencies : dependencies,
+                link_args : link_args + ['-llog', '-landroid', '-lGLESv2', '-lEGL', '-lOpenSLES'],
+            )
+        else
+            binary = shared_library(
+                'main',
+                generated_files + sources,
+                include_directories : includes,
+                dependencies : dependencies,
+                link_whole : tl_sub.get_variable('tilengine_static_lib'),
+                link_args : link_args + ['-llog', '-landroid', '-lGLESv2', '-lEGL', '-lOpenSLES'],
+            )
+        endif
     elif host_machine.system() == 'horizon'
         icon_file = files('dist' / 'Apotris-switch.jpg')
         binary = executable(
