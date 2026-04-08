@@ -19,6 +19,17 @@
 static int offsetx = (SCREEN_WIDTH - 240) / 2;
 static int offsety = (SCREEN_HEIGHT - 160) / 2;
 
+#if defined(__ANDROID__)
+// Android CI currently links a Tilengine static build without sprite-rotation symbols.
+// Keep sprite drawing functional by treating rotation reset/set as no-ops on Android.
+#define TLN_SET_SPRITE_ROTATION_SAFE(sprite, angle) ((void)0)
+#define TLN_RESET_SPRITE_ROTATION_SAFE(sprite) ((void)0)
+#else
+#define TLN_SET_SPRITE_ROTATION_SAFE(sprite, angle) \
+    TLN_SetSpriteRotation(sprite, angle)
+#define TLN_RESET_SPRITE_ROTATION_SAFE(sprite) TLN_ResetSpriteRotation(sprite)
+#endif
+
 int spriteVOffset = 0;
 
 static bool blendSprites = false;
@@ -251,7 +262,7 @@ void showSprites(int n) {
         TLN_SetSpritePicture(counter, counter);
         TLN_SetSpritePalette(counter, palettes[sprite->palette + 16]);
         if (sprite->affine && !sprite->rotate) {
-            TLN_ResetSpriteRotation(counter);
+            TLN_RESET_SPRITE_ROTATION_SAFE(counter);
             TLN_SetSpritePivot(counter, 0.5, 0.5);
 
             TLN_SetSpriteScaling(counter, sprite->scalex, sprite->scaley);
@@ -270,9 +281,9 @@ void showSprites(int n) {
             const int sprite_y = sprite->y + offsety - sprite->sy * scaleOffset;
 
             TLN_SetSpritePosition(counter, sprite_x, sprite_y);
-            TLN_SetSpriteRotation(counter, sprite->angle);
+            TLN_SET_SPRITE_ROTATION_SAFE(counter, sprite->angle);
         } else {
-            TLN_ResetSpriteRotation(counter);
+            TLN_RESET_SPRITE_ROTATION_SAFE(counter);
             TLN_SetSpritePosition(counter, sprite->x + offsetx,
                                   sprite->y + offsety);
             TLN_SetSpritePivot(counter, 0.0, 0.0);
