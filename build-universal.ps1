@@ -357,8 +357,29 @@ function Write-UniversalAndroidLocalProperties {
     $sdkRoot = if ($env:ANDROID_SDK_ROOT) { Normalize-DirPath $env:ANDROID_SDK_ROOT }
         elseif ($env:ANDROID_HOME) { Normalize-DirPath $env:ANDROID_HOME }
         else { $LOCAL_STUDIO_SDK }
+
+    if (-not (Test-Path $sdkRoot)) {
+        $ndkTry = $null
+        if ($env:ANDROID_NDK_HOME) {
+            $ndkTry = Normalize-DirPath $env:ANDROID_NDK_HOME
+        } elseif (Test-Path $NDK_VERSIONS_DIR) {
+            $pick = Get-ChildItem $NDK_VERSIONS_DIR -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
+            if ($pick) { $ndkTry = $pick.FullName }
+        }
+        if ($ndkTry -and (Test-Path $ndkTry)) {
+            # e.g. .../Sdk/ndk/26.1.x -> .../Sdk
+            $sdkFromNdk = Split-Path (Split-Path $ndkTry)
+            if (Test-Path $sdkFromNdk) { $sdkRoot = Normalize-DirPath $sdkFromNdk }
+        }
+    }
+
+    if (-not (Test-Path $sdkRoot)) {
+        Fail ("Android SDK not found. Tried: ANDROID_SDK_ROOT, ANDROID_HOME, $LOCAL_STUDIO_SDK, and parent of NDK. Set ANDROID_HOME or install the SDK.")
+    }
+
     $sdkUnix = $sdkRoot.Replace('\', '/')
     "sdk.dir=$sdkUnix" | Set-Content -Path (Join-Path $PROJECT_DIR_UNIV "local.properties") -Encoding ASCII
+    Ok "local.properties sdk.dir=$sdkUnix"
 }
 
 # --- Parse requested ABIs ---
