@@ -221,14 +221,17 @@ if host_machine.system() != 'gba' and host_machine.system() != 'n3ds'
             sdl_mixer = dependency('sdl2_mixer', static : true, default_options : ['default_library=static'], fallback : ['sdl2_mixer', 'sdl2_mixer_dep'])
         else
             if not get_option('portmaster')
-                # Android: disable HIDAPI so SDL never references PLATFORM_hid_* (C++ hid.cpp + lld static .a quirk).
+                # Android: subproject() so use_hidapi=disabled is definitely applied (dependency() default_options
+                # can be skipped if SDL was already configured). Disables PLATFORM_hid_* in SDL_hidapi.c.
                 if host_machine.system() == 'android'
-                    sdl2_dep = dependency(
+                    sdl2_dep = subproject(
                         'sdl2',
-                        static : true,
-                        default_options : ['default_library=static', 'test=false', 'use_hidapi=disabled'],
-                        fallback : ['sdl2', 'sdl2_dep'],
-                    )
+                        default_options : [
+                            'default_library=static',
+                            'test=false',
+                            'use_hidapi=disabled',
+                        ],
+                    ).get_variable('sdl2_dep')
                 else
                     sdl2_dep = dependency('sdl2', static : true, default_options : ['default_library=static', 'test=false'], fallback : ['sdl2', 'sdl2_dep'])
                 endif
