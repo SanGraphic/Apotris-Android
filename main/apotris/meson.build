@@ -213,6 +213,21 @@ if host_machine.system() != 'gba' and host_machine.system() != 'n3ds'
         endif
         soloud = dependency('SoLoud', static : true, default_options : ['default_library=static'], fallback : ['SoLoud', 'soloud_dep'])
     else
+        # Android: configure SDL2 before openmpt / Tilengine / sdl2_mixer / SoLoud so nothing else
+        # configures the sdl2 subproject first without use_hidapi=disabled (avoids PLATFORM_hid_* link errors).
+        android_sdl2_done = false
+        if host_machine.system() == 'android' and not get_option('portmaster')
+            sdl2_dep = subproject(
+                'sdl2',
+                default_options : [
+                    'default_library=static',
+                    'test=false',
+                    'use_hidapi=disabled',
+                ],
+            ).get_variable('sdl2_dep')
+            android_sdl2_done = true
+        endif
+
         # Other required dependencies
         openmpt = dependency('openmpt', static : true, default_options : ['default_library=static'], fallback : ['openmpt', 'openmpt_dep'])
         tilengine = dependency('Tilengine', static : true, default_options : ['default_library=static'], fallback : ['Tilengine', 'tilengine_dep'])
@@ -221,18 +236,7 @@ if host_machine.system() != 'gba' and host_machine.system() != 'n3ds'
             sdl_mixer = dependency('sdl2_mixer', static : true, default_options : ['default_library=static'], fallback : ['sdl2_mixer', 'sdl2_mixer_dep'])
         else
             if not get_option('portmaster')
-                # Android: subproject() so use_hidapi=disabled is definitely applied (dependency() default_options
-                # can be skipped if SDL was already configured). Disables PLATFORM_hid_* in SDL_hidapi.c.
-                if host_machine.system() == 'android'
-                    sdl2_dep = subproject(
-                        'sdl2',
-                        default_options : [
-                            'default_library=static',
-                            'test=false',
-                            'use_hidapi=disabled',
-                        ],
-                    ).get_variable('sdl2_dep')
-                else
+                if not android_sdl2_done
                     sdl2_dep = dependency('sdl2', static : true, default_options : ['default_library=static', 'test=false'], fallback : ['sdl2', 'sdl2_dep'])
                 endif
                 sdl_mixer = dependency('sdl2_mixer', static : true, default_options : ['default_library=static'], fallback : ['sdl2_mixer', 'sdl2_mixer_dep'])

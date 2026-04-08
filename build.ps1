@@ -392,8 +392,18 @@ if (-not $SkipNative) {
     $mesonCommon = @(
         "--cross-file", $crossRel,
         "-Db_lto=false",
-        "--buildtype=release"
+        "--buildtype=release",
+        # Feature option on SDL2 wrap; ensures SDL_hidapi PLATFORM_* are not required on Android+lld.
+        "-Dsdl2:use_hidapi=disabled"
     )
+    # Meson skips wrap patch_directory when subprojects/Tilengine already exists (e.g. cached tree).
+    # Force our overlay (link_whole + pic) so libmain.so links all TLN_* from static Tilengine.
+    $tilengineDir = Join-Path $ROOT "main\apotris\subprojects\Tilengine"
+    $tilengineOverlay = Join-Path $ROOT "main\apotris\subprojects\packagefiles\Tilengine\meson.build"
+    if ((Test-Path $tilengineDir) -and (Test-Path $tilengineOverlay)) {
+        Copy-Item -LiteralPath $tilengineOverlay -Destination (Join-Path $tilengineDir "meson.build") -Force
+        Ok "Applied Tilengine meson.build overlay (patch_directory skip workaround)"
+    }
     # Meson expects: setup [options] <sourcedir> <builddir> (--reconfigure updates existing builddir)
     if (Test-Path "main/apotris/build-android/meson-private/coredata.dat") {
         python -m mesonbuild.mesonmain setup "main/apotris" "main/apotris/build-android" --reconfigure @mesonCommon
@@ -401,6 +411,18 @@ if (-not $SkipNative) {
         python -m mesonbuild.mesonmain setup "main/apotris" "main/apotris/build-android" @mesonCommon
     }
     if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "meson setup failed" }
+
+    # If Meson cloned Tilengine but skipped patch_directory, upstream meson.build has no link_whole (lld drops TLN_*).
+    $tilMesonDst = Join-Path $ROOT "main\apotris\subprojects\Tilengine\meson.build"
+    if ((Test-Path $tilMesonDst) -and (Test-Path $tilengineOverlay)) {
+        $tilContent = Get-Content -LiteralPath $tilMesonDst -Raw
+        if ($tilContent -notmatch 'link_whole\s*:') {
+            Copy-Item -LiteralPath $tilengineOverlay -Destination $tilMesonDst -Force
+            Ok "Tilengine overlay missing link_whole; applied and reconfiguring"
+            python -m mesonbuild.mesonmain setup "main/apotris" "main/apotris/build-android" --reconfigure @mesonCommon
+            if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "meson reconfigure after Tilengine overlay failed" }
+        }
+    }
 
     Step "Compiling libmain.so (meson compile activates MSVC for host tools like padbin)"
     # Raw `ninja` fails on Windows cross-builds: build.ninja invokes `cl`/`link` for native

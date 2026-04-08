@@ -443,6 +443,9 @@ if (-not $SkipNative) {
     $prebuiltHost = Get-ChildItem "$ndkRoot\toolchains\llvm\prebuilt" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $prebuiltHost) { Fail "NDK prebuilt host folder missing under $ndkRoot" }
 
+    $tilengineDir = Join-Path $ROOT "main\apotris\subprojects\Tilengine"
+    $tilengineOverlay = Join-Path $ROOT "main\apotris\subprojects\packagefiles\Tilengine\meson.build"
+
     foreach ($cfg in $activeConfigs) {
         $crossPath = Join-Path $CROSS_OUT_DIR $cfg.CrossFile
         $buildDirAbs = Join-Path $UNIVERSAL_BASE $cfg.MesonSubdir
@@ -457,11 +460,15 @@ if (-not $SkipNative) {
         $mesonCommon = @(
             "--cross-file", $crossRel,
             "-Db_lto=false",
-            "--buildtype=release"
+            "--buildtype=release",
+            "-Dsdl2:use_hidapi=disabled"
         )
 
         Step "Meson setup + compile: $($cfg.Id) -> $buildDirRel"
         Push-Location $ROOT
+        if ((Test-Path $tilengineDir) -and (Test-Path $tilengineOverlay)) {
+            Copy-Item -LiteralPath $tilengineOverlay -Destination (Join-Path $tilengineDir "meson.build") -Force
+        }
         $coreData = Join-Path $buildDirAbs "meson-private\coredata.dat"
         if (Test-Path $coreData) {
             python -m mesonbuild.mesonmain setup "main/apotris" $buildDirRel --reconfigure @mesonCommon
@@ -469,6 +476,16 @@ if (-not $SkipNative) {
             python -m mesonbuild.mesonmain setup "main/apotris" $buildDirRel @mesonCommon
         }
         if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "meson setup failed for $($cfg.Id)" }
+
+        $tilMesonDst = Join-Path $tilengineDir "meson.build"
+        if ((Test-Path $tilMesonDst) -and (Test-Path $tilengineOverlay)) {
+            $tilContent = Get-Content -LiteralPath $tilMesonDst -Raw
+            if ($tilContent -notmatch 'link_whole\s*:') {
+                Copy-Item -LiteralPath $tilengineOverlay -Destination $tilMesonDst -Force
+                python -m mesonbuild.mesonmain setup "main/apotris" $buildDirRel --reconfigure @mesonCommon
+                if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "meson reconfigure after Tilengine overlay failed for $($cfg.Id)" }
+            }
+        }
 
         python -m mesonbuild.mesonmain compile -C $buildDirRel main
         if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "meson compile failed for $($cfg.Id)" }
