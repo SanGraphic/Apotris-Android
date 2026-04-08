@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Apotris.Splash" parent="Theme.SplashScreen">
+        <item name="postSplashScreenTheme">@android:style/Theme.NoTitleBar.Fullscreen</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <item name="windowSplashScreenAnimationDuration">2000</item>
+        <item name="windowSplashScreenBackground">#FF000000</item>
+    </style>
+</resources>

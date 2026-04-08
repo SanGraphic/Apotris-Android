@@ -1,0 +1,37 @@
+; PICA200 vertex shader for drawing simple textured triangles
+
+; Uniforms
+.fvec projection[4]
+
+; Constants
+.constf myconst(0.0, 1.0, -1.0, 0.5)
+.alias  zeros myconst.xxxx ; Vector full of zeros
+.alias  ones  myconst.yyyy ; Vector full of ones
+; .alias halfs myconst.wwww ; Vector full of halves
+
+; Outputs
+.out out_pos position
+; .out out_color color
+.out out_uv texcoord0
+
+; Inputs (defined as aliases for convenience)
+.alias in_pos v0.xy
+.alias in_uv v1.xy
+
+.entry bg_simple_tex_main
+.proc bg_simple_tex_main
+	mov r0.xy, in_pos
+	mov r0.zw, ones
+
+	; out_pos = projectionMatrix * pos
+	dp4 out_pos.x, projection[0], r0
+	dp4 out_pos.y, projection[1], r0
+	dp4 out_pos.z, projection[2], r0
+	dp4 out_pos.w, projection[3], r0
+
+	; out_uv = in_uv
+	mov out_uv, in_uv
+
+	; We're finished
+	end
+.end

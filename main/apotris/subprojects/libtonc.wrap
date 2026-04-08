@@ -1,0 +1,7 @@
+[wrap-git]
+url = https://github.com/gbadev-org/libtonc
+revision = aa361872171b7366de44ac87769119dcbac123da
+patch_directory = libtonc
+
+[provide]
+dependency_names = libtonc

@@ -1,0 +1,97 @@
+; PICA200 vertex shader for sprites
+
+; Uniforms
+.fvec projection[4]
+
+; Constants
+.constf myconst(0.0, 1.0, -1.0, 0.5)
+.alias  zeros myconst.xxxx ; Vector full of zeros
+.alias  ones  myconst.yyyy ; Vector full of ones
+.alias halfs myconst.wwww ; Vector full of halves
+; 1 / 1024, 1 / 512
+.constf myconst2(0.0009765625, 0.001953125, 0.0, 0.0)
+.alias SPRITESHEET_PX_TO_UV myconst2.xy
+
+; Outputs
+.out out_pos position
+.out out_color color
+.out out_uv texcoord0
+
+; Inputs (defined as aliases for convenience)
+.alias in_spritesheet_topleft v0.xy
+.alias in_uv v1.xy
+.alias in_sprite_pos v2.xy
+.alias in_size v3.xy
+.alias in_flip v4.xy
+.alias in_aff_row0 v5.xy
+.alias in_aff_row1 v5.zw
+.alias in_blend v6.x
+.alias in_double_size v6.y
+.alias in_blend_factor v7.x
+
+.entry sprite_main
+.proc sprite_main
+	; let half_in_size = &r14
+	; half_in_size.xy = in_size * 0.5
+	mul r14.xy, halfs, in_size
+
+	; let local_pos = &r15
+	; local_pos.xy = in_uv * in_size - half_in_size.xy
+	mov r15.xy, in_uv
+	mad r15.xy, r15.xy, in_size, -r14.xy
+
+	; let pos = &r0
+	; pos.xy = local_pos.xy * in_aff
+	mov r15.zzzw, zeros
+	dp3 r0.x, in_aff_row0, r15
+	dp3 r0.y, in_aff_row1, r15
+
+	; pos.xy += in_double_size * half_in_size.xy
+	;         + half_in_size.xy
+	;         + in_sprite_pos.xy
+	mad r0.xy, in_double_size, r14.xy, r0.xy
+	add r0.xy, r0.xy, r14.xy
+	add r0.xy, r0.xy, in_sprite_pos.xy
+
+	; pos.zw = 1.0
+	mov r0.zzzw, ones
+
+	; out_pos = projectionMatrix * pos
+	dp4 out_pos.x, projection[0], r0
+	dp4 out_pos.y, projection[1], r0
+	dp4 out_pos.z, projection[2], r0
+	dp4 out_pos.w, projection[3], r0
+
+	; out_color = [1.0, 1.0, 1.0, in_blend ? in_blend_factor : 1.0]
+	mov r15.xyzw, ones
+	cmp ones, eq, eq, in_blend
+	ifc cmp.x
+		mov r15.w, in_blend_factor
+	.end
+	mov out_color, r15
+
+
+	; --- Handle tile flip and scale base UV --
+	cmp ones, eq, eq, in_flip.xy
+	ifc cmp.x
+		add r2.x, ones, -in_uv.x
+	.else
+		mov r2.x, in_uv.x
+	.end
+	ifc cmp.y
+		add r2.y, ones, -in_uv.y
+	.else
+		mov r2.y, in_uv.y
+	.end
+
+	; spritesheet_uv_px = r2 * in_size + in_spritesheet_topleft
+	; global_uv = spritesheet_uv_px * SPRITESHEET_PX_TO_UV * [1, -1] + [0, 1]
+	mul r1.xy, r2.xy, in_size
+	add r1.xy, r1.xy, in_spritesheet_topleft
+	mul r1.xy, SPRITESHEET_PX_TO_UV, r1.xy
+	add r1.y, ones, -r1.y
+	mov out_uv, r1.xy
+
+	; We're finished
+	end
+.end

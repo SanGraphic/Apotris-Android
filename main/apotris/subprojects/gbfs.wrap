@@ -1,0 +1,9 @@
+[wrap-file]
+source_url = http://pineight.com/gba/gbfs.zip
+source_filename = gbfs.zip
+source_hash = 8d02a29e033bf3247209baf66d00820654a2ce8c485b64001a5f4570bd8aadea
+lead_directory_missing = true
+patch_directory = gbfs
+
+[provide]
+dependency_names = gbfs

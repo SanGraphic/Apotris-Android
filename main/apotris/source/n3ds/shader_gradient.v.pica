@@ -1,0 +1,41 @@
+; PICA200 vertex shader for the gradient backdrop
+
+; Uniforms
+.fvec projection[4]
+
+; Constants
+.constf myconst(0.0, 1.0, -1.0, 0.5)
+.alias  zeros myconst.xxxx ; Vector full of zeros
+.alias  ones  myconst.yyyy ; Vector full of ones
+.alias halfs myconst.wwww ; Vector full of halves
+; 5-bit colour to float, i.e. 1 / 31
+.constf myconst2(0.03225806451612903225806451612903, 0.0, 0.0, 0.0)
+.alias COLOR5_CONV myconst2.x
+
+; Outputs
+.out out_pos position
+.out out_color color
+
+; Inputs (defined as aliases for convenience)
+.alias in_pos v0.xy
+.alias in_color v1.xyz
+
+.entry gradient_main
+.proc gradient_main
+	mov r0.xy, in_pos
+	mov r0.zw, ones
+
+	; out_pos = projectionMatrix * pos
+	dp4 out_pos.x, projection[0], r0
+	dp4 out_pos.y, projection[1], r0
+	dp4 out_pos.z, projection[2], r0
+	dp4 out_pos.w, projection[3], r0
+
+	; out_color = conv(in_color)
+	mul r0.xyz, COLOR5_CONV, in_color.xyz
+	mov r0.w, ones
+	mov out_color, r0
+
+	; We're finished
+	end
+.end

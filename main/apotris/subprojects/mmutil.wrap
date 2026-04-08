@@ -1,0 +1,7 @@
+[wrap-git]
+url = https://github.com/blocksds/mmutil
+revision = eedbb4a
+patch_directory = mmutil
+
+[provide]
+program_names = mmutil

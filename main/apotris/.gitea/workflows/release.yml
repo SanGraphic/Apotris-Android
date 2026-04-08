@@ -1,0 +1,398 @@
+name: CI
+on: [push]
+
+jobs:
+  build:
+    name: Build & Package ${{ matrix.target }} for ${{ matrix.platform }}
+    strategy:
+      matrix:
+        include:
+          - target: gba
+            platform: Game Boy Advance
+            cross_file: meson/gba.ini
+            build_flags: --reconfigure -Db_lto=true -Db_lto_mode=thin --buildtype=release
+            # Add specific package details if needed
+            package_name_suffix: GBA
+            package_files: "LINUX_or_MAC_build.sh WINDOWS_build.bat README.txt Apotris.gba tools/* audio/* license/*" # Files inside build-gba
+            readme_src: tools/README.txt # Default GBA readme
+            runs-on: ubuntu-latest
+            container: akouzoukos/apotris:latest
+          - target: switch
+            platform: Nintendo Switch
+            cross_file: meson/switch.ini
+            build_flags: --reconfigure -Db_lto=false --buildtype=release
+            env:
+              PATH: /usr/bin:/bin:/opt/devkitpro/tools/bin:$PATH
+            package_name_suffix: Switch
+            package_files: "README.txt Apotris.nro assets/* license/*" # Files inside build-switch
+            readme_src: tools/README_SWITCH.txt
+            runs-on: ubuntu-latest
+            container: akouzoukos/apotris:latest
+            exclude_package_files: "assets/meson.build" # Exclude meson build file in assets
+          - target: linux-arm64 # Use a distinct target name
+            platform: aarch64 # Platform architecture
+            runs-on: arm64 # Specific runner label
+            container: akouzoukos/apotris-arm64:latest
+            build_flags: --reconfigure -Db_lto=true -Db_lto_mode=thin --buildtype=release
+            package_name_suffix: Linux-arm64 # Specific suffix
+            package_files: "README.txt Apotris assets/* assets/shaders/* license/*" # Assuming same files needed
+            exclude_package_files: "assets/meson.build" # Exclude meson build file in assets
+            readme_src: tools/README_LINUX.txt # Use the same Linux readme
+          - target: linux
+            platform: x86_64
+            build_flags: --reconfigure -Db_lto=true -Db_lto_mode=thin --buildtype=release
+            package_name_suffix: Linux-x64
+            package_files: "README.txt Apotris assets/* assets/shaders/* license/*" # Files inside build-linux
+            # Note: assets/* might need adjustment if they aren't copied by meson
+            exclude_package_files: "assets/meson.build"
+            readme_src: tools/README_LINUX.txt
+            runs-on: ubuntu-latest
+            container: akouzoukos/apotris-linux:latest
+          - target: win64
+            platform: MinGW x86_64
+            cross_file: meson/mingw.ini
+            build_flags: --reconfigure -Db_lto=false --buildtype=release
+            package_name_suffix: Windows-x64
+            package_files: "README.txt Apotris.exe assets/* assets/shaders/* license/*" # Files inside build-win64
+            exclude_package_files: "assets/meson.build"
+            readme_src: tools/README.txt
+            runs-on: ubuntu-latest
+            container: akouzoukos/apotris:latest
+          - target: n3ds
+            platform: 3DS
+            cross_file: meson/n3ds.ini
+            build_flags: --reconfigure --buildtype=release
+            package_name_suffix: 3DS
+            # 3DS packaging is more complex, handled specially below
+            readme_src: # No simple readme copy here
+            runs-on: ubuntu-latest
+            container: akouzoukos/apotris:latest
+          - target: web
+            platform: HTML5+JS
+            cross_file: meson/emscripten.ini
+            build_flags: --reconfigure -Db_lto=false --buildtype=release
+            package_name_suffix: Web
+            package_files: "Apotris.* license/*" # Files inside build-web
+            exclude_package_files: "Apotris.html.p/"
+            readme_src: # No simple readme copy here
+            runs-on: ubuntu-latest
+            container: akouzoukos/apotris:latest
+
+    runs-on: ${{matrix.runs-on}}
+    container: ${{matrix.container}}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1 # Keep for git hash
+
+      - name: Install packaging tools
+        run: apt-get update && apt-get install -y zip git # Ensure zip and git are present
+
+      - name: Build for ${{ matrix.target }}
+        shell: bash
+        env: ${{ matrix.env }}
+        run: |
+          uname -m
+          # Configure build
+          build_dir="build-${{ matrix.target }}"
+          if [[ "${{ matrix.target }}" == "web" ]]; then
+            source "/root/emsdk/emsdk_env.sh"
+            meson setup ${{ matrix.build_flags }} --cross-file=${{ matrix.cross_file }} $build_dir
+            meson compile -C $build_dir
+          elif [[ "${{ matrix.target }}" == "n3ds" ]]; then
+            meson setup ${{ matrix.build_flags }} --cross-file=${{ matrix.cross_file }} $build_dir
+            meson compile -C $build_dir 3dsx cia
+          else
+            cross_file_arg=""
+            if [[ -n "${{ matrix.cross_file }}" ]]; then
+              cross_file_arg="--cross-file=${{ matrix.cross_file }}"
+            fi
+            meson setup ${{ matrix.build_flags }} $cross_file_arg $build_dir
+            meson compile -C $build_dir
+          fi
+
+      - name: Package build artifact
+        id: package
+        shell: bash
+        run: |
+          build_dir="build-${{ matrix.target }}"
+          short_hash=$(git rev-parse --short HEAD)
+          current_ref="${{ github.ref_name }}"
+          sanitized_ref=$(echo "$current_ref" | sed 's|/|_|g')
+          zip_name="Apotris-${{ matrix.package_name_suffix }}-$sanitized_ref-$short_hash.zip"
+
+          echo "Packaging ${{ matrix.target }} into $zip_name..."
+          cd $build_dir
+
+          # Common steps: Copy license
+          cp -r ../license .
+
+          # Target-specific preparations and packaging
+          if [[ "${{ matrix.target }}" == "gba" ]]; then
+            cp ../tools/README.txt ./README.txt
+            # GBA specific pre-packaging steps (copying tools, assets etc.)
+            mkdir -p audio tools
+            cp ../assets/* audio/ && rm -f audio/meson.build audio/favicon32.bmp
+            cp ../tools/ape.aarch64 ../tools/ape.x86_64 ../tools/gbfs.exe ../tools/buildSoundbank.exe \
+               ../tools/buildSoundbank.py ../tools/mmutil.exe ../tools/padbin.exe ../tools/cat.exe \
+               ../tools/countchan.exe ../tools/sound_effects.txt ./tools/
+            cp Apotris-base.gba ./tools/
+            cp ../tools/buildSongs.bat ./WINDOWS_build.bat
+            cp ../tools/buildSongs.sh ./LINUX_or_MAC_build.sh
+            chmod +x ./LINUX_or_MAC_build.sh
+            # Zip GBA contents
+            zip "../$zip_name" ${{ matrix.package_files }}
+
+          elif [[ "${{ matrix.target }}" == "n3ds" ]]; then
+            # 3DS specific structure
+            mkdir -p 3ds/Apotris/
+            cp -r ../assets 3ds/Apotris/
+            rm -f 3ds/Apotris/assets/meson.build 3ds/Apotris/assets/favicon32.bmp
+            rm -rf 3ds/Apotris/assets/shaders
+            cp -r ../license-n3ds 3ds/Apotris/license # Use specific 3DS license if present
+            cp Apotris.3dsx Apotris.cia 3ds/Apotris/
+            # Zip 3DS contents (note the path '3ds/Apotris')
+            zip -r "../$zip_name" 3ds/Apotris
+
+          elif [[ "${{ matrix.target }}" == "linux" || "${{ matrix.target }}" == "linux-arm64" || "${{ matrix.target }}" == "win64" || "${{ matrix.target }}" == "switch" ]]; then
+             # Copy specific readme
+             cp ../${{ matrix.readme_src }} ./README.txt
+             # Copy assets if needed (Meson might already do this depending on setup)
+             if [[ "${{ matrix.target }}" == "linux" || "${{ matrix.target }}" == "win64" ]]; then
+                if [[ ! -d "assets" ]]; then # Only copy if not already present
+                    echo "Copying assets directory..."
+                    cp -r ../assets .
+                else
+                    echo "Assets directory already exists in build."
+                fi
+             fi
+             # General zip command
+             exclude_arg=""
+             if [[ -n "${{ matrix.exclude_package_files }}" ]]; then
+               exclude_arg="-x ${{ matrix.exclude_package_files }}"
+             fi
+             zip "../$zip_name" ${{ matrix.package_files }} $exclude_arg
+
+          elif [[ "${{ matrix.target }}" == "web" ]]; then
+             # Web zip command
+             exclude_arg=""
+             if [[ -n "${{ matrix.exclude_package_files }}" ]]; then
+               exclude_arg="-x ${{ matrix.exclude_package_files }}"
+             fi
+             zip "../$zip_name" ${{ matrix.package_files }} $exclude_arg
+
+          else
+            echo "Unknown target for packaging: ${{ matrix.target }}"
+            exit 1
+          fi
+
+          cd ..
+          echo "Created package: $zip_name"
+          # Set output for artifact upload step
+          echo "zip_name=$zip_name" >> $GITHUB_OUTPUT
+
+      - name: Upload packaged artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: artifact-${{ matrix.target }} # Unique name for each artifact zip
+          path: ${{ steps.package.outputs.zip_name }} # Upload the specific zip file
+
+  package:
+    name: Aggregate Packages
+    needs: build # Run after all build jobs complete
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Download all packaged artifacts
+        uses: actions/download-artifact@v3
+        # Downloads all artifacts from this workflow run (each artifact-*.zip)
+        # They will be downloaded into directories named after the artifact name ('artifact-linux', 'artifact-win64', etc.)
+
+      - name: List downloaded files
+        run: |
+          pwd
+          ls -R
+
+      - name: Move archives to top level and check
+        run: |
+          # Artifacts are downloaded into subdirectories named after the artifact name
+          find . -mindepth 2 -name 'Apotris-*.zip' -exec mv {} . \;
+          ls -l Apotris*.zip
+
+      - name: Upload combined artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: packaged-distributions # Single artifact containing all zips
+          path: Apotris-*.zip # Upload all zip files now in the root
+
+  deploy:
+    name: Deploy to Blob Storage & Notify Discord
+    needs: package # Depends on package finishing
+    runs-on: ubuntu-latest
+    if: always() && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1 # Keep for git hash
+
+      - name: Download packaged distributions artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: packaged-distributions # Download the artifact collection
+        continue-on-error: true # Allow continuing if download fails
+
+      - name: Check for zip files
+        id: check_files
+        run: |
+          # Ensure glob expands to nothing if no match
+          shopt -s nullglob
+          files=(*.zip)
+          if [ ${#files[@]} -gt 0 ]; then
+            echo "files_exist=true" >> $GITHUB_OUTPUT
+            echo "Found ${#files[@]} zip file(s)."
+            ls -l *.zip # List files for logging
+          else
+            echo "files_exist=false" >> $GITHUB_OUTPUT
+            echo "No zip files found after download."
+          fi
+
+      - name: Install Azure CLI
+        if: steps.check_files.outputs.files_exist == 'true'
+        run: curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+      - name: Define Upload Variables
+        if: steps.check_files.outputs.files_exist == 'true'
+        id: vars
+        run: |
+          short_hash=$(git rev-parse --short HEAD)
+          echo "UPLOAD_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+          echo "COMMIT_HASH_SHORT=$short_hash" >> $GITHUB_OUTPUT
+          echo "BLOB_FOLDER=$(date +'%Y-%m-%d')-$short_hash" >> $GITHUB_OUTPUT
+          echo "Generated blob folder: $BLOB_FOLDER"
+
+      - name: Upload Zip Files to Azure Blob Storage
+        if: steps.check_files.outputs.files_exist == 'true'
+        id: upload
+        env:
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+          AZURE_STORAGE_CONTAINER_NAME: ${{ secrets.AZURE_STORAGE_CONTAINER_NAME }}
+          AZURE_STORAGE_ACCOUNT_NAME: ${{ secrets.AZURE_STORAGE_ACCOUNT_NAME }}
+          BLOB_FOLDER: ${{ steps.vars.outputs.BLOB_FOLDER }}
+        run: |
+          shopt -s nullglob
+          files=(*.zip)
+          uploaded_urls="" # Initialize empty string for URLs
+
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No zip files found to upload."
+            exit 0
+          fi
+
+          echo "Uploading files to container '$AZURE_STORAGE_CONTAINER_NAME' in folder '$BLOB_FOLDER'..."
+
+          for file in "${files[@]}"; do
+            blob_name="$BLOB_FOLDER/$file"
+            echo "Uploading $file as $blob_name..."
+            az storage blob upload \
+              --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
+              --container-name "$AZURE_STORAGE_CONTAINER_NAME" \
+              --name "$blob_name" \
+              --file "$file" \
+              --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+              --overwrite true
+
+            if [ $? -ne 0 ]; then
+              echo "::error::Failed to upload $file"
+              # Decide if you want to continue or fail:
+              # exit 1 # Fail immediately
+              continue # Continue uploading others
+            fi
+
+            # Get the URL of the uploaded blob
+            # Note: Ensure the container has public access configured if needed,
+            # or use SAS tokens for temporary access. This gets the standard URL.
+            blob_url=$(az storage blob url \
+              --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
+              --container-name "$AZURE_STORAGE_CONTAINER_NAME" \
+              --name "$blob_name" \
+              --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+              --output tsv)
+
+             if [ $? -eq 0 ] && [ -n "$blob_url" ]; then
+               echo "Successfully uploaded $file to $blob_url"
+               # Append URL and filename with a newline for the Discord message
+               uploaded_urls="$uploaded_urls- [$file]($blob_url)\n"
+             else
+               echo "::warning::Could not retrieve URL for $blob_name"
+               uploaded_urls="$uploaded_urls- $file (Upload succeeded, URL retrieval failed)\n"
+             fi
+             # Optional: Add a small delay if needed
+             # sleep 1
+          done
+
+          # Set the output for the next step, escaping newlines for multiline string
+          echo "uploaded_urls<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$uploaded_urls" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Send Links to Discord
+        if: steps.check_files.outputs.files_exist == 'true' && steps.upload.outputs.uploaded_urls != ''
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          COMMIT_HASH_SHORT: ${{ steps.vars.outputs.COMMIT_HASH_SHORT }}
+          UPLOAD_DATE: ${{ steps.vars.outputs.UPLOAD_DATE }}
+          UPLOADED_URLS: ${{ steps.upload.outputs.uploaded_urls }}
+        run: |
+          # Construct the main message body with the list of URLs
+          message_content="✅ Apotris builds for commit \`${COMMIT_HASH_SHORT}\` uploaded on ${UPLOAD_DATE}:\n${UPLOADED_URLS}"
+
+          # Ensure the message isn't too long for Discord (max 2000 chars)
+          # This is a basic check; more robust truncation might be needed
+          if [ ${#message_content} -gt 1900 ]; then
+            message_content="${message_content:0:1900}...\n(Message truncated)"
+          fi
+
+          # Escape JSON special characters in the message content (simple approach)
+          escaped_content=$(echo "$message_content" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+
+          # Construct the JSON payload
+          json_payload="{\"content\":\"$escaped_content\", \"username\":\"Automatic Builds\", \"avatar_url\":\"https://apotrisstorage.blob.core.windows.net/assets/icon.png\"}"
+
+          echo "Sending notification to Discord..."
+          # Use curl to send the JSON payload
+          curl -H "Content-Type: application/json" -X POST \
+               -d "$json_payload" \
+               "$DISCORD_WEBHOOK_URL"
+
+          if [ $? -ne 0 ]; then
+             echo "::error::Error sending success notification via curl."
+             # exit 1 # Optionally fail
+          else
+             echo "Success notification sent."
+          fi
+
+      - name: Notify Build Failed or No Zips Found
+        # Trigger if files didn't exist OR if they existed but the upload step produced no URLs (e.g., all uploads failed)
+        if: steps.check_files.outputs.files_exist == 'false' || (steps.check_files.outputs.files_exist == 'true' && steps.upload.outputs.uploaded_urls == '')
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.INFO_WEBHOOK_URL }}
+          COMMIT_HASH_SHORT: ${{ github.sha::7 }} # Use github.sha directly here as steps.vars might not run
+        run: |
+          failure_reason="No packages were successfully created or uploaded."
+          if [ "${{ steps.check_files.outputs.files_exist }}" == 'false' ]; then
+            failure_reason="Build process completed, but no packages were found to upload."
+          elif [ "${{ steps.upload.outputs.uploaded_urls }}" == '' ]; then
+            failure_reason="Build process completed and packages were found, but all uploads failed or URL retrieval failed."
+          fi
+
+          echo "$failure_reason Sending failure notification."
+          # Use curl to send a simple JSON message
+          curl -H "Content-Type: application/json" -X POST \
+               -d "{\"content\":\"❌ Apotris build process (Commit: ${COMMIT_HASH_SHORT}) failed: ${failure_reason}\", \"username\":\"Automatic Builds\", \"avatar_url\":\"https://apotrisstorage.blob.core.windows.net/assets/icon.png\"}" \
+               "$DISCORD_WEBHOOK_URL"
+          if [ $? -ne 0 ]; then
+             echo "::error::Error sending failure notification via curl."
+             # exit 1 # Optionally fail
+          fi

@@ -1,0 +1,69 @@
+; The MIT License (MIT)
+;
+; Copyright (C) 2025 Michael Theall
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+; ImGui PICA200 vertex shader
+
+; uniforms
+; Projection matrix
+.fvec proj[4]
+.fvec z
+
+; constants
+; [1.0, 0.0, 1.0/255.0, 0.0]
+.constf constants(1.0, 0.0, 0.00392156862745, 0.0)
+
+; outputs
+.out outPos   position
+.out outUv    texcoord0
+.out outColor color
+
+; inputs (defined as aliases for convenience)
+.alias inPos   v0
+.alias inUv    v1
+.alias inColor v2
+
+.proc main
+	; force inPos.z = 0.0, inPos.w = 1.0
+	mov r0.xy, inPos.xy
+	mov r0.zw, constants.yx
+
+	; offset stereoscopy
+	add r0.x, z.x, r0.x
+
+	; outPos = proj * inPos
+	dp4 outPos.x, proj[0], r0
+	dp4 outPos.y, proj[1], r0
+	dp4 outPos.z, proj[2], r0
+	dp4 outPos.w, proj[3], r0
+
+	; outUv = inUv
+	mov outUv, inUv
+
+	; normalize inColor
+	mul r1, constants.zzzz, inColor
+
+	; outColor = inColor
+	mov outColor, r1
+
+	; we're finished
+	end
+.end

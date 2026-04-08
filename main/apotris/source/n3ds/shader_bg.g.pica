@@ -1,0 +1,120 @@
+; PICA200 geometry shader for BG tiles
+
+.gsh point c0
+
+; Uniforms
+.fvec projection[4]
+
+; Constants
+; .constf myconst(0.0, 1.0, -1.0, 0.1)
+; .alias  zeros myconst.xxxx ; Vector full of zeros
+; .alias  ones  myconst.yyyy ; Vector full of ones
+; 1.0 / 32.0 ; 256 ; 160 + 40 + 8
+.constf myconst2(0.03125, 256, 208, 8)
+; .alias TILE_TO_UV myconst2.xx
+; .alias BG_WRAPAROUND_OFFSET myconst2.y
+; .alias BG_WRAPAROUND_THRESHOLD myconst2.z
+.alias BG_TILE_SIZE myconst2.w
+
+; .constf myconst3(8, 0, 0, 0)
+; .alias BG_TILE_SIZE myconst3.xxyy
+
+; Outputs
+.out out_pos position
+.out out_uv texcoord0
+
+; Inputs (defined as aliases for convenience)
+.alias in_pos_topleft v0
+.alias in_uv_topleft v1
+.alias in_uv_bottomright v2
+
+.entry bg_geom_main
+.proc bg_geom_main
+	; let pos_topleft = &r0
+	; pos_topleft = in_pos_topleft
+	mov r0, in_pos_topleft
+
+	; --- Top-left ---
+
+	; let pos = &r2
+	; pos = topleft
+	mov r2, r0
+
+	; out_pos = projectionMatrix * pos
+	dp4 out_pos.x, projection[0], r2
+	dp4 out_pos.y, projection[1], r2
+	dp4 out_pos.z, projection[2], r2
+	dp4 out_pos.w, projection[3], r2
+
+	; let uv = &r3
+	; uv = in_uv_topleft
+	; out_uv = uv
+	mov r3, in_uv_topleft
+	mov out_uv, r3
+
+	setemit 0
+	emit
+
+	; --- Bottom-left ---
+
+	; pos.y = BG_TILE_SIZE + pos_topleft.y
+	add r2.y, BG_TILE_SIZE, r0.y
+
+	; out_pos = projectionMatrix * pos
+	dp4 out_pos.x, projection[0], r2
+	dp4 out_pos.y, projection[1], r2
+	dp4 out_pos.z, projection[2], r2
+	dp4 out_pos.w, projection[3], r2
+
+	; let uv = &r3
+	; uv.y = in_uv.bottomright.y
+	; out_uv = uv
+	mov r3.y, in_uv_bottomright.y
+	mov out_uv, r3
+
+	setemit 1
+	emit
+
+	; --- Bottom-right ---
+
+	; pos.x = BG_TILE_SIZE + pos_topleft.x
+	add r2.x, BG_TILE_SIZE, r0.x
+
+	; out_pos = projectionMatrix * pos
+	dp4 out_pos.x, projection[0], r2
+	dp4 out_pos.y, projection[1], r2
+	dp4 out_pos.z, projection[2], r2
+	dp4 out_pos.w, projection[3], r2
+
+	; let uv = &r3
+	; uv.x = in_uv.bottomright.x
+	; out_uv = uv
+	mov r3.x, in_uv_bottomright.x
+	mov out_uv, r3
+
+	setemit 2, prim
+	emit
+
+	; --- Top-right ---
+
+	; pos.y = in_pos_topleft.y
+	mov r2.y, in_pos_topleft.y
+
+	; out_pos = projectionMatrix * pos
+	dp4 out_pos.x, projection[0], r2
+	dp4 out_pos.y, projection[1], r2
+	dp4 out_pos.z, projection[2], r2
+	dp4 out_pos.w, projection[3], r2
+
+	; let uv = &r3
+	; uv.x = in_uv.bottomright.x
+	; out_uv = uv
+	mov r3.y, in_uv_topleft.y
+	mov out_uv, r3
+
+	setemit 1, prim inv
+	emit
+
+	; We're finished
+	end
+.end

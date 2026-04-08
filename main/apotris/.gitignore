@@ -1,0 +1,22 @@
+build*/
+bin/
+.cache/
+.vscode/
+.idea/
+*.gba
+*.elf
+*.sav
+*.srm
+*.pnproj
+*.el
+.clangd
+compile_commands.json
+apotris*.png
+
+dkarm.ini
+
+# Apple stuff
+.DS_Store
+.AppleDouble
+.LSOverride
+._*

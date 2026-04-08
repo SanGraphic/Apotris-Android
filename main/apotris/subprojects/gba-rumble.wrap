@@ -1,0 +1,7 @@
+[wrap-git]
+url = https://github.com/nullstalgia/gba-rumble
+revision = a120084ea2f5b78a8312ad350c67053499729c45
+patch_directory = gba-rumble
+
+[provide]
+dependency_names = gba-rumble

@@ -1,0 +1,6 @@
+[wrap-git]
+url = https://github.com/sdk-seven/libseven
+revision = v0.22.3
+
+[provide]
+dependency_names = libseven

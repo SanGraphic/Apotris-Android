@@ -1,0 +1,38 @@
+name: Clang-Format Check
+on:
+  pull_request:
+  push:
+    branches: [master, main]
+
+jobs:
+  format-check:
+    name: Check code formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Get base commit hash (push)
+        if: ${{github.event_name == 'push'}}
+        run: echo "BASE_SHA=${{github.event.before}}" >> "$GITHUB_ENV"
+
+      - name: Get base commit hash (PR)
+        if: ${{github.event_name == 'pull_request'}}
+        run: echo "BASE_SHA=${{github.event.pull_request.base.sha}}" >> "$GITHUB_ENV"
+
+      - name: Fetch base commit
+        run: git fetch origin "${BASE_SHA}"
+
+      - name: Install clang-format
+        run: sudo apt-get update && sudo apt-get install -y clang-format
+
+      - name: Run clang-format and check for changes
+        run: |
+          git config --local color.ui always
+          echo "Running git clang-format ${BASE_SHA}:"
+          if git clang-format --verbose --diff "${BASE_SHA}"; then
+            echo "Code formatting check passed."
+          else
+            echo "Formatting issues found. Please run git clang-format locally and commit the changes."
+            exit 1
+          fi

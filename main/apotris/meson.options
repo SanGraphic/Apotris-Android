@@ -1,0 +1,6 @@
+option('portmaster', type : 'boolean', value: false)
+option('emu_detect', type : 'boolean', value: false)
+
+# Options specific to N3DS port:
+option('debug_ui', type : 'boolean', value: false)
+option('profiling', type : 'boolean', value: false)

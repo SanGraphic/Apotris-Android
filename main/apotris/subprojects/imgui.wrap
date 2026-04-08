@@ -1,0 +1,13 @@
+[wrap-file]
+directory = imgui-1.91.6
+source_url = https://github.com/ocornut/imgui/archive/refs/tags/v1.91.6.tar.gz
+source_filename = imgui-1.91.6.tar.gz
+source_hash = c5fbc5dcab1d46064001c3b84d7a88812985cde7e0e9ced03f5677bec1ba502a
+patch_filename = imgui_1.91.6-2_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/imgui_1.91.6-2/get_patch
+patch_hash = 515e31b18e3928aafce2c62c94fa6d8426f5132e9c3f2d9951b7e96b6381f33a
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/imgui_1.91.6-2/imgui-1.91.6.tar.gz
+wrapdb_version = 1.91.6-2
+
+[provide]
+imgui = imgui_dep

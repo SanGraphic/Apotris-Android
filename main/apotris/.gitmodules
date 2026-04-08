@@ -1,0 +1,20 @@
+[submodule "tilengine"]
+	path = subprojects/Tilengine
+	url = https://gitea.com/Apotris/Tilengine.git
+	branch = static
+[submodule "subprojects/general-tools"]
+	path = subprojects/general-tools
+	url = https://gitea.com/Apotris/general-tools.git
+	branch = main
+[submodule "subprojects/gba-tools"]
+	path = subprojects/gba-tools
+	url = https://gitea.com/Apotris/gba-tools.git
+	branch = main
+[submodule "subprojects/SoLoud"]
+	path = subprojects/SoLoud
+	url = https://gitea.com/Apotris/SoLoud.git
+	branch = main
+[submodule "subprojects/libopenmpt"]
+	path = subprojects/openmpt
+	url = https://gitea.com/Apotris/libopenmpt.git
+	branch = main

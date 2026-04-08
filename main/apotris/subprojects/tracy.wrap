@@ -1,0 +1,5 @@
+[wrap-git]
+; url = https://github.com/wolfpld/tracy.git
+url = https://github.com/alvinhochun/tracy.git
+revision = n3ds-v0.11
+depth = 1

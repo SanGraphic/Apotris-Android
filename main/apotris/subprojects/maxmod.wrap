@@ -1,0 +1,7 @@
+[wrap-git]
+url = https://github.com/blocksds/maxmod
+revision = a7c8833
+patch_directory = maxmod
+
+[provide]
+dependency_names = maxmod

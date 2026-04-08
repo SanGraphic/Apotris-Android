@@ -1,0 +1,7 @@
+[wrap-git]
+url = https://github.com/Optiroc/SuperFamiconv
+revision = a5027f3c4f1e3e16f868971d343b85a9bf424f96
+patch_directory = superfamiconv
+
+[provide]
+program_names = superfamiconv

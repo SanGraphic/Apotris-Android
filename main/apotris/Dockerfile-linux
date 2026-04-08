@@ -1,0 +1,26 @@
+FROM docker.io/library/ubuntu:20.04
+
+# Install apt-available deps
+ARG DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+RUN apt-get update \
+  && apt-get install -y  --no-install-recommends \
+    python3 ash zsh vim build-essential git make curl meson xxd zstd wget sudo ca-certificates zip unzip \
+    libsdl2-mixer-dev libopus-dev libvorbis-dev nodejs \
+    pkg-config cmake ninja-build gnome-desktop-testing libasound2-dev libpulse-dev \
+    libaudio-dev libjack-dev libsndio-dev libx11-dev libxext-dev \
+    libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev \
+    libxkbcommon-dev libdrm-dev libgbm-dev libgl1-mesa-dev libgles2-mesa-dev \
+    libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev fcitx-libs-dev python3-pip \
+  && apt-get install -y --fix-missing directx-headers-dev \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install latest meson 1.4.0
+ADD https://github.com/mesonbuild/meson/releases/download/1.4.0/meson-1.4.0.tar.gz .
+RUN tar xf meson-1.4.0.tar.gz && cd meson-1.4.0 && python3 setup.py install
+
+# Return to root home folder
+WORKDIR /root
+
+# fix linux SDL2 xrandr dependency issue
+RUN sudo apt remove --purge libsdl2-dev -y

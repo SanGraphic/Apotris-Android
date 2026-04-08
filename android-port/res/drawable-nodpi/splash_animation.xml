@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animation-list android:oneshot="true"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:duration="62" android:drawable="@drawable/splash_f0001" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0002" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0003" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0004" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0005" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0006" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0007" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0008" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0009" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0010" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0011" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0012" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0013" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0014" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0015" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0016" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0017" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0018" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0019" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0020" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0021" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0022" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0023" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0024" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0025" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0026" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0027" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0028" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0029" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0030" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0031" />
+    <item android:duration="62" android:drawable="@drawable/splash_f0032" />
+</animation-list>

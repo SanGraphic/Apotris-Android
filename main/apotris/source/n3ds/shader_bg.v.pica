@@ -1,0 +1,89 @@
+; PICA200 vertex shader for BG tiles
+
+; Uniforms
+
+; Constants
+.constf myconst(0.0, 1.0, -1.0, 0.1)
+.alias  zeros myconst.xxxx ; Vector full of zeros
+.alias  ones  myconst.yyyy ; Vector full of ones
+.alias one_neg_one myconst.yzyz
+; 1.0 / 32.0 ; 256 ; 160 + 40 + 8
+.constf myconst2(0.03125, 256, 208, 8)
+.alias TILE_TO_UV myconst2.xx
+.alias BG_WRAPAROUND_OFFSET myconst2.y
+.alias BG_WRAPAROUND_THRESHOLD myconst2.z
+.alias BG_TILE_SIZE myconst2.w
+
+; Outputs
+.out out_pos_topleft dummy o0
+.out out_uv_topleft dummy o1
+.out out_uv_bottomright dummy o2
+
+; Inputs (defined as aliases for convenience)
+.alias in_pos_topleft v0
+; x = char slot of tile
+.alias in_slot v1.x
+.alias in_flip v2.xy
+; xy = layer top-left
+.alias in_layer_topleft v3.xy
+
+.entry bg_main
+.proc bg_main
+	; let pos = &r0
+	; pos.xy = in_pos_topleft.xy - in_layer_topleft.xy
+	mov r0.xy, in_pos_topleft.xy
+	add r0.xy, r0.xy, -in_layer_topleft.xy
+
+	; Handle wraparound in the Y-down direction:
+	; If tile Y is >= threshold then we move it up by the full height.
+	sge r15.y, r0.y, BG_WRAPAROUND_THRESHOLD
+	mad r0.y, r15.y, -BG_WRAPAROUND_OFFSET, r0.y
+
+	; pos.zw = 1.0
+	mov r0.zzzw, ones
+
+	; out_pos = pos
+	mov out_pos_topleft, r0
+
+	; --- Tile UV offset from char slot ---
+	;
+	; We need to compute:
+	;  x = (in_slot % 32) / 32.0f;
+	;  y = -(in_slot / 32) / 32.0f;
+	; Which can be rewritten as:
+	;  x = in_slot / 32.0f - floor(in_slot / 32.0f);
+	;  y = -floor(in_slot / 32.0f) / 32.0f;
+	; Actually x can be further simplified because UV wraps around:
+	;  x = in_slot / 32.0f
+	;
+	; let char_tile = &r1
+	; char_tile.xy =  (1.0 / 32.0) * in_slot
+	mul r1.xy, TILE_TO_UV.xy, in_slot
+
+	; char_tile.y = floor(char_tile.y)
+	flr r1.y, r1.y
+
+	; char_tile.y = -(1.0 / 32.0) * char_tile.y
+	mul r1.y, TILE_TO_UV.y, -r1.y
+
+	; --- Handle tile flip and scale base UV --
+	;
+	; let new_uv_topleft = &r2
+	; new_uv_topleft.xy = [1.0, -1.0] * in_flip.xy
+	mul r2.xy, one_neg_one.xy, in_flip.xy
+
+	; let new_uv_bottomright = &r3
+	; new_uv_bottomright.xy = [1.0, -1.0] - new_uv_topleft.xy
+	add r3.xy, one_neg_one, -r2.xy
+
+	; --- Scale UV and combine tile UV offset --
+	;
+	; out_uv_topleft.xy = new_uv_topleft.xy * (1.0 / 32.0) + char_tile.xy
+	mad out_uv_topleft, r2.xy, TILE_TO_UV.xy, r1.xy
+
+	; out_uv_bottomright.xy = new_uv_bottomright.xy * (1.0 / 32.0) + char_tile.xy
+	mad out_uv_bottomright, r3.xy, TILE_TO_UV.xy, r1.xy
+
+	; We're finished
+	end
+.end

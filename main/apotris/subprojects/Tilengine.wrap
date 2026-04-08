@@ -1,0 +1,10 @@
+[wrap-git]
+url =  https://github.com/akouzoukos/tilengine.git
+revision = static
+
+[wrap-file]
+patch_directory = Tilengine
+
+[provide]
+Tilengine = tilengine_dep
+

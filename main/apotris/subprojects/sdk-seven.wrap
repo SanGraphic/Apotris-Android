@@ -1,0 +1,8 @@
+[wrap-git]
+url = https://github.com/sdk-seven/runtime
+revision = v0.11.1
+
+[provide]
+dependency_names = minrt, minrt-multiboot
+program_names = makerom, gbafix-py, bin2s-py
+

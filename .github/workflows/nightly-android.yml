@@ -1,0 +1,226 @@
+# Nightly signed APKs using the same PowerShell pipelines as locally (Meson + Gradle + Uber signer).
+#
+# Artifacts: Actions → "Nightly Android build" → latest run → Artifacts
+#
+# Optional release signing: add repository secrets (Settings → Secrets and variables → Actions):
+#   APOTRIS_KEYSTORE_B64   — base64-encoded .jks file (e.g. certutil /encode or base64 -w0)
+#   APOTRIS_KEYSTORE_PASS  — keystore password
+#   APOTRIS_KEY_ALIAS      — key alias
+#   APOTRIS_KEY_PASS       — key password
+# If APOTRIS_KEYSTORE_B64 is unset, a stable CI keystore is restored from cache (or created once).
+
+name: Nightly Android build
+
+on:
+  schedule:
+    - cron: "15 5 * * *"
+  workflow_dispatch:
+    inputs:
+      build_universal:
+        description: "Also build multi-ABI universal APK (slow)"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: nightly-android-${{ github.workflow }}
+  cancel-in-progress: true
+
+# Artifact upload needs write on actions in repos with restricted default GITHUB_TOKEN
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  arm64:
+    name: arm64-v8a APK
+    runs-on: windows-latest
+    timeout-minutes: 150
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Init submodules inside main/apotris (if present)
+        shell: pwsh
+        run: |
+          if (Test-Path "main/apotris/.gitmodules") {
+            git -C main/apotris submodule update --init --recursive
+          }
+
+      - name: Enable long paths for Git
+        shell: pwsh
+        run: git config --global core.longpaths true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Meson and Ninja
+        run: python -m pip install --upgrade pip meson ninja
+
+      - name: Set up Android SDK + NDK 26.1
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools platforms;android-34 build-tools;34.0.0 ndk;26.1.10909125"
+
+      - name: Point Apotris scripts at CI SDK/NDK
+        shell: pwsh
+        run: |
+          $sdk = $env:ANDROID_SDK_ROOT
+          if ([string]::IsNullOrWhiteSpace($sdk)) { throw "ANDROID_SDK_ROOT not set after setup-android" }
+          $ndk = Join-Path $sdk "ndk\26.1.10909125"
+          if (-not (Test-Path $ndk)) { throw "NDK not found at $ndk" }
+          "ANDROID_NDK_HOME=$ndk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Restore cached CI keystore
+        id: ci-ks
+        uses: actions/cache@v4
+        with:
+          path: apotris-ci-nightly.jks
+          key: apotris-ci-nightly-keystore-v1-${{ runner.os }}
+
+      - name: Create CI keystore (cache miss)
+        if: steps.ci-ks.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          & keytool -genkeypair `
+            -keystore apotris-ci-nightly.jks `
+            -alias apotris-nightly `
+            -keyalg RSA -keysize 2048 -validity 10000 `
+            -storepass changeme -keypass changeme `
+            -dname "CN=Apotris Nightly CI, O=CI, C=US"
+
+      - name: Run build.ps1
+        shell: pwsh
+        env:
+          SECRET_JKS_B64: ${{ secrets.APOTRIS_KEYSTORE_B64 }}
+          SECRET_KS_PASS: ${{ secrets.APOTRIS_KEYSTORE_PASS }}
+          SECRET_ALIAS: ${{ secrets.APOTRIS_KEY_ALIAS }}
+          SECRET_KEY_PASS: ${{ secrets.APOTRIS_KEY_PASS }}
+        run: |
+          Set-Location $env:GITHUB_WORKSPACE
+          if ($env:SECRET_JKS_B64) {
+            $out = Join-Path $PWD "signing-release.jks"
+            [IO.File]::WriteAllBytes($out, [Convert]::FromBase64String($env:SECRET_JKS_B64))
+            $env:APOTRIS_KEYSTORE = $out
+            $env:APOTRIS_KEYSTORE_PASS = $env:SECRET_KS_PASS
+            $env:APOTRIS_KEY_ALIAS = $env:SECRET_ALIAS
+            $env:APOTRIS_KEY_PASS = $env:SECRET_KEY_PASS
+          } else {
+            $env:APOTRIS_KEYSTORE = Join-Path $PWD "apotris-ci-nightly.jks"
+            $env:APOTRIS_KEYSTORE_PASS = "changeme"
+            $env:APOTRIS_KEY_ALIAS = "apotris-nightly"
+            $env:APOTRIS_KEY_PASS = "changeme"
+          }
+          ./build.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apotris-arm64-nightly
+          path: apotris-arm64-v8a-*.apk
+          if-no-files-found: error
+          retention-days: 21
+
+  universal:
+    name: Universal (multi-ABI) APK
+    if: github.event_name == 'workflow_dispatch' && inputs.build_universal
+    runs-on: windows-latest
+    timeout-minutes: 240
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Init submodules inside main/apotris (if present)
+        shell: pwsh
+        run: |
+          if (Test-Path "main/apotris/.gitmodules") {
+            git -C main/apotris submodule update --init --recursive
+          }
+
+      - name: Enable long paths for Git
+        shell: pwsh
+        run: git config --global core.longpaths true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Meson and Ninja
+        run: python -m pip install --upgrade pip meson ninja
+
+      - name: Set up Android SDK + NDK 26.1
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools platforms;android-34 build-tools;34.0.0 ndk;26.1.10909125"
+
+      - name: Point Apotris scripts at CI SDK/NDK
+        shell: pwsh
+        run: |
+          $sdk = $env:ANDROID_SDK_ROOT
+          if ([string]::IsNullOrWhiteSpace($sdk)) { throw "ANDROID_SDK_ROOT not set" }
+          $ndk = Join-Path $sdk "ndk\26.1.10909125"
+          if (-not (Test-Path $ndk)) { throw "NDK not found at $ndk" }
+          "ANDROID_NDK_HOME=$ndk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Restore cached CI keystore
+        id: ci-ks-u
+        uses: actions/cache@v4
+        with:
+          path: apotris-ci-nightly.jks
+          key: apotris-ci-nightly-keystore-v1-${{ runner.os }}
+
+      - name: Create CI keystore (cache miss)
+        if: steps.ci-ks-u.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          & keytool -genkeypair `
+            -keystore apotris-ci-nightly.jks `
+            -alias apotris-nightly `
+            -keyalg RSA -keysize 2048 -validity 10000 `
+            -storepass changeme -keypass changeme `
+            -dname "CN=Apotris Nightly CI, O=CI, C=US"
+
+      - name: Run build-universal.ps1
+        shell: pwsh
+        env:
+          SECRET_JKS_B64: ${{ secrets.APOTRIS_KEYSTORE_B64 }}
+          SECRET_KS_PASS: ${{ secrets.APOTRIS_KEYSTORE_PASS }}
+          SECRET_ALIAS: ${{ secrets.APOTRIS_KEY_ALIAS }}
+          SECRET_KEY_PASS: ${{ secrets.APOTRIS_KEY_PASS }}
+        run: |
+          Set-Location $env:GITHUB_WORKSPACE
+          if ($env:SECRET_JKS_B64) {
+            $out = Join-Path $PWD "signing-release.jks"
+            [IO.File]::WriteAllBytes($out, [Convert]::FromBase64String($env:SECRET_JKS_B64))
+            $env:APOTRIS_KEYSTORE = $out
+            $env:APOTRIS_KEYSTORE_PASS = $env:SECRET_KS_PASS
+            $env:APOTRIS_KEY_ALIAS = $env:SECRET_ALIAS
+            $env:APOTRIS_KEY_PASS = $env:SECRET_KEY_PASS
+          } else {
+            $env:APOTRIS_KEYSTORE = Join-Path $PWD "apotris-ci-nightly.jks"
+            $env:APOTRIS_KEYSTORE_PASS = "changeme"
+            $env:APOTRIS_KEY_ALIAS = "apotris-nightly"
+            $env:APOTRIS_KEY_PASS = "changeme"
+          }
+          ./build-universal.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apotris-universal-nightly
+          path: apotris-universal-*.apk
+          if-no-files-found: error
+          retention-days: 21
