@@ -282,8 +282,8 @@ jobs:
           cp "$arm64_apk" release-assets/apotris-arm64-v8a.apk
 
           if [ -d dist/universal ]; then
-            universal_apk="$(find dist/universal -type f -name '*.apk' | head -n 1 || true)"
-            if [ -n "${universal_apk:-}" ]; then
+            universal_apk="$(find dist/universal -type f -name '*.apk' | head -n 1)"
+            if [ -n "$universal_apk" ]; then
               cp "$universal_apk" release-assets/apotris-universal.apk
             fi
           fi
