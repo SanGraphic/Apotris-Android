@@ -54,6 +54,14 @@ jobs:
         shell: pwsh
         run: git config --global core.longpaths true
 
+      # general-tools is a gitea submodule in upstream Apotris but not vendored in this repo; Meson needs it for padbin etc.
+      - name: Sync Apotris gitea subprojects
+        shell: pwsh
+        run: |
+          Set-Location $env:GITHUB_WORKSPACE
+          Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+          ./tools/ci/sync-apotris-subprojects.ps1
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -158,6 +166,13 @@ jobs:
       - name: Enable long paths for Git
         shell: pwsh
         run: git config --global core.longpaths true
+
+      - name: Sync Apotris gitea subprojects
+        shell: pwsh
+        run: |
+          Set-Location $env:GITHUB_WORKSPACE
+          Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+          ./tools/ci/sync-apotris-subprojects.ps1
 
       - uses: actions/setup-java@v4
         with:
