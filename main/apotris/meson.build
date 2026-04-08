@@ -221,7 +221,17 @@ if host_machine.system() != 'gba' and host_machine.system() != 'n3ds'
             sdl_mixer = dependency('sdl2_mixer', static : true, default_options : ['default_library=static'], fallback : ['sdl2_mixer', 'sdl2_mixer_dep'])
         else
             if not get_option('portmaster')
-                sdl2_dep = dependency('sdl2', static : true, default_options : ['default_library=static', 'test=false'], fallback : ['sdl2', 'sdl2_dep'])
+                # Android: disable HIDAPI so SDL never references PLATFORM_hid_* (C++ hid.cpp + lld static .a quirk).
+                if host_machine.system() == 'android'
+                    sdl2_dep = dependency(
+                        'sdl2',
+                        static : true,
+                        default_options : ['default_library=static', 'test=false', 'use_hidapi=disabled'],
+                        fallback : ['sdl2', 'sdl2_dep'],
+                    )
+                else
+                    sdl2_dep = dependency('sdl2', static : true, default_options : ['default_library=static', 'test=false'], fallback : ['sdl2', 'sdl2_dep'])
+                endif
                 sdl_mixer = dependency('sdl2_mixer', static : true, default_options : ['default_library=static'], fallback : ['sdl2_mixer', 'sdl2_mixer_dep'])
             else
                 sdl2_dep = dependency('sdl2', static : false, default_options : ['default_library=shared', 'test=false'], fallback : ['sdl2', 'sdl2_dep'])
@@ -231,24 +241,14 @@ if host_machine.system() != 'gba' and host_machine.system() != 'n3ds'
         soloud = dependency('SoLoud', static : true, default_options : ['default_library=static'], fallback : ['SoLoud', 'soloud_dep'])
     endif
 
-    # Android libmain.so: lld only pulls .o from static .a on demand; SDL's C++ hid backend and
-    # Tilengine objects can be skipped, leaving PLATFORM_hid_* / TLN_* undefined. Meson >= 1.2
-    # can force whole-archive semantics per dependency.
-    tilengine_link = tilengine
-    sdl2_link = sdl2_dep
-    if host_machine.system() == 'android' and meson.version().version_compare('>=1.2.0')
-        tilengine_link = tilengine.as_link_whole()
-        sdl2_link = sdl2_dep.as_link_whole()
-    endif
-
     dependencies = [
         dependency('threads'),
         ogg,
         openmpt,
         sdl_mixer,
         opus,
-        tilengine_link,
-        sdl2_link,
+        tilengine,
+        sdl2_dep,
         soloud,
     ]
 
