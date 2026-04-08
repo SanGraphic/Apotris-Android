@@ -20,6 +20,8 @@ static int offsetx = (SCREEN_WIDTH - 240) / 2;
 static int offsety = (SCREEN_HEIGHT - 160) / 2;
 
 #if defined(__ANDROID__)
+// Android CI currently links a Tilengine static build without sprite-rotation symbols.
+// Keep sprite drawing functional by treating rotation reset/set as no-ops on Android.
 #define TLN_SET_SPRITE_ROTATION_SAFE(sprite, angle) ((void)0)
 #define TLN_RESET_SPRITE_ROTATION_SAFE(sprite) ((void)0)
 #else
