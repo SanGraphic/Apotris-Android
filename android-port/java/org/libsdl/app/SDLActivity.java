@@ -395,7 +395,16 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
 
         mClipboardHandler = new SDLClipboardHandler();
 
-        mHIDDeviceManager = HIDDeviceManager.acquire(this);
+        // SDL Android JNI for HID is omitted when libSDL2 is merged into libmain.so with hidapi
+        // disabled (see meson.build use_hidapi=disabled). Without this guard, acquire() throws
+        // UnsatisfiedLinkError for HIDDeviceRegisterCallback. Gamepads still work via standard
+        // Android input; mHIDDeviceManager is already null-checked elsewhere.
+        try {
+            mHIDDeviceManager = HIDDeviceManager.acquire(this);
+        } catch (UnsatisfiedLinkError e) {
+            Log.w(TAG, "HIDDeviceManager JNI not loaded; skipping HID hotplug: " + e.getMessage());
+            mHIDDeviceManager = null;
+        }
 
         // Set up the surface
         mSurface = createSDLSurface(this);
