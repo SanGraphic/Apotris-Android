@@ -45,7 +45,7 @@ Apotris is a feature-rich block stacking game originally built for the Game Boy 
 
 ### Which APK for which device?
 
-| Prebuilt APK (`releases/` or nightly) | CPU ABIs included | Use when |
+| Nightly release asset | CPU ABIs included | Use when |
 |---|---|---|
 | **`apotris-arm64-v8a.apk`** | **arm64-v8a** only | Most **phones and tablets from ~2016 onward** (64-bit ARM). Smaller download. |
 | **`apotris-universal.apk`** | **arm64-v8a**, **armeabi-v7a**, **x86**, **x86_64** | **Older 32-bit ARM** devices, **x86/x86_64 emulators**, or if the arm64-only build does not install. Larger download. |
@@ -63,16 +63,17 @@ Apotris is a feature-rich block stacking game originally built for the Game Boy 
 ---
 
 ## Downloads
-![DOWNLOADS](https://img.shields.io/github/downloads/SanGraphic/Apotris-Android/total)
-Tracked, signed APKs live in the repo folder [`releases/`](https://github.com/SanGraphic/Apotris-Android/tree/main/releases) (e.g. **`apotris-arm64-v8a.apk`**, **`apotris-universal.apk`**). The [**nightly** release](https://github.com/SanGraphic/Apotris-Android/releases/tag/nightly) can attach the same files when you run the **Publish nightly GitHub Release** workflow.
 
-**Automated nightlies:** the [Nightly Android build](.github/workflows/nightly-android.yml) workflow runs on a schedule (UTC), uploads APKs as **workflow artifacts** (Actions → workflow → latest run → Artifacts), and also updates the **`nightly` GitHub Release** with the generated APK assets. You can also start it manually (**Run workflow**). Optional checkbox **Also build multi-ABI universal APK** runs the fat `build-universal.ps1` job (slow), and when enabled the universal APK is added to the same nightly release.
-**Automated nightlies (CI artifacts):** the [Nightly Android build](.github/workflows/nightly-android.yml) workflow runs on a schedule (UTC) and uploads APKs as **workflow artifacts** (Actions → workflow → latest run → Artifacts). You can also start it manually (**Run workflow**). Optional checkbox **Also build multi-ABI universal APK** runs the fat `build-universal.ps1` job (slow).
+[![GitHub downloads](https://img.shields.io/github/downloads/SanGraphic/Apotris-Android/total)](https://github.com/SanGraphic/Apotris-Android/releases/tag/nightly)
 
-| Variant | Description |
+**Pre-built signed APKs:** [**Apotris Android — Nightly**](https://github.com/SanGraphic/Apotris-Android/releases/tag/nightly) (`nightly` tag). Each successful [Nightly Android build](.github/workflows/nightly-android.yml) refreshes that release with **`apotris-arm64-v8a.apk`**; when you run the workflow manually with **Also build multi-ABI universal APK**, **`apotris-universal.apk`** is attached as well.
+
+**CI artifacts:** the same workflow also uploads APKs under **Actions → Nightly Android build → latest run → Artifacts** (handy if you need a build that is not on the release yet).
+
+| Asset on nightly release | Description |
 |---|---|
-| `releases/apotris-arm64-v8a.apk` | 64-bit ARM only — most modern phones |
-| `releases/apotris-universal.apk` | Multi-ABI fat APK — see **Supported devices** above |
+| **`apotris-arm64-v8a.apk`** | 64-bit ARM only — most modern phones |
+| **`apotris-universal.apk`** | Multi-ABI fat APK — see **Supported devices** (only when the universal job ran) |
 
 ### CI signing (optional)
 

@@ -1,8 +1,7 @@
-# Build outputs
+# Build outputs (pre-built APKs: GitHub Releases → nightly tag only)
 *.apk
-!releases/apotris-universal.apk
-!releases/apotris-arm64-v8a.apk
 *.aab
+releases/
 *.so
 *.o
 *.a
