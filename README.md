@@ -65,7 +65,7 @@ Implementation notes live in [`docs/android-multi-architecture-apk.md`](docs/and
 
 Pre-built signed APKs may be published on the [Releases](../../releases) page.
 
-**Automated nightlies:** the [Nightly Android build](.github/workflows/nightly-android.yml) workflow runs on a schedule (UTC) and uploads APKs as **workflow artifacts** (Actions → workflow → latest run → Artifacts). You can also start it manually (**Run workflow**). Optional checkbox **Also build multi-ABI universal APK** runs the fat `build-universal.ps1` job (slow).
+**Automated nightlies:** the [Nightly Android build](.github/workflows/nightly-android.yml) workflow runs on a schedule (UTC), uploads APKs as **workflow artifacts** (Actions → workflow → latest run → Artifacts), and also updates the **`nightly` GitHub Release** with the generated APK assets. You can also start it manually (**Run workflow**). Optional checkbox **Also build multi-ABI universal APK** runs the fat `build-universal.ps1` job (slow), and when enabled the universal APK is added to the same nightly release.
 
 | Variant | Description |
 |---|---|

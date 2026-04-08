@@ -20,11 +20,40 @@ static int offsetx = (SCREEN_WIDTH - 240) / 2;
 static int offsety = (SCREEN_HEIGHT - 160) / 2;
 
 #if defined(__ANDROID__)
-// Android CI currently links a Tilengine static build without sprite-rotation symbols.
-// Keep sprite drawing functional by treating rotation reset/set as no-ops on Android.
-#define TLN_SET_SPRITE_ROTATION_SAFE(sprite, angle) ((void)0)
-#define TLN_RESET_SPRITE_ROTATION_SAFE(sprite) ((void)0)
+#include <dlfcn.h>
+
+using TLN_SetSpriteRotationFn = bool (*)(int, float);
+using TLN_ResetSpriteRotationFn = bool (*)(int);
+
+static TLN_SetSpriteRotationFn resolveSetSpriteRotation() {
+    static auto fn = reinterpret_cast<TLN_SetSpriteRotationFn>(
+        dlsym(RTLD_DEFAULT, "TLN_SetSpriteRotation"));
+    return fn;
+}
+
+static TLN_ResetSpriteRotationFn resolveResetSpriteRotation() {
+    static auto fn = reinterpret_cast<TLN_ResetSpriteRotationFn>(
+        dlsym(RTLD_DEFAULT, "TLN_ResetSpriteRotation"));
+    return fn;
+}
+
+#define TLN_HAS_SPRITE_ROTATION_SAFE()                                          \
+    ((resolveSetSpriteRotation() != nullptr) &&                                 \
+     (resolveResetSpriteRotation() != nullptr))
+#define TLN_SET_SPRITE_ROTATION_SAFE(sprite, angle)                             \
+    do {                                                                         \
+        auto fn = resolveSetSpriteRotation();                                    \
+        if (fn)                                                                  \
+            fn(sprite, angle);                                                   \
+    } while (0)
+#define TLN_RESET_SPRITE_ROTATION_SAFE(sprite)                                   \
+    do {                                                                         \
+        auto fn = resolveResetSpriteRotation();                                  \
+        if (fn)                                                                  \
+            fn(sprite);                                                          \
+    } while (0)
 #else
+#define TLN_HAS_SPRITE_ROTATION_SAFE() (true)
 #define TLN_SET_SPRITE_ROTATION_SAFE(sprite, angle) \
     TLN_SetSpriteRotation(sprite, angle)
 #define TLN_RESET_SPRITE_ROTATION_SAFE(sprite) TLN_ResetSpriteRotation(sprite)
@@ -271,7 +300,8 @@ void showSprites(int n) {
             TLN_SetSpritePosition(
                 counter, sprite->x + offsetx + sprite->sx * scaleOffset,
                 sprite->y + offsety + sprite->sy * scaleOffset);
-        } else if (sprite->affine && sprite->rotate) {
+        } else if (sprite->affine && sprite->rotate &&
+                   TLN_HAS_SPRITE_ROTATION_SAFE()) {
             TLN_SetSpritePivot(counter, 0.5, 0.5);
             TLN_SetSpriteScaling(counter, sprite->scalex, sprite->scaley);
 

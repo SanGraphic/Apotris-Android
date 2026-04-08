@@ -28,7 +28,7 @@ concurrency:
 
 # Artifact upload needs write on actions in repos with restricted default GITHUB_TOKEN
 permissions:
-  contents: read
+  contents: write
   actions: write
 
 jobs:
@@ -255,3 +255,55 @@ jobs:
           path: apotris-universal-*.apk
           if-no-files-found: error
           retention-days: 21
+
+  publish-release:
+    name: Publish nightly GitHub Release
+    runs-on: ubuntu-latest
+    needs: [arm64, universal]
+    if: always() && needs.arm64.result == 'success' && (needs.universal.result == 'success' || needs.universal.result == 'skipped')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: apotris-arm64-nightly
+          path: dist/arm64
+      - uses: actions/download-artifact@v4
+        if: needs.universal.result == 'success'
+        with:
+          name: apotris-universal-nightly
+          path: dist/universal
+      - name: Prepare release APK assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          arm64_apk="$(find dist/arm64 -type f -name '*.apk' | head -n 1)"
+          test -n "$arm64_apk"
+          cp "$arm64_apk" release-assets/apotris-arm64-v8a.apk
+
+          if [ -d dist/universal ]; then
+            universal_apk="$(find dist/universal -type f -name '*.apk' | head -n 1 || true)"
+            if [ -n "${universal_apk:-}" ]; then
+              cp "$universal_apk" release-assets/apotris-universal.apk
+            fi
+          fi
+
+          ls -la release-assets
+      - name: Point nightly tag at current commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f nightly
+          git push origin refs/tags/nightly -f
+      - name: Create or update nightly release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nightly
+          name: Apotris Android — Nightly
+          body_path: .github/nightly-release-notes.md
+          files: release-assets/*.apk
+          prerelease: true
+          make_latest: true
+          allowUpdates: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
