@@ -42,10 +42,11 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Init submodules inside main/apotris (if present)
+      # Vendored main/apotris (no .git) cannot run git -C main/apotris submodule; only clone-as-submodule setups need this.
+      - name: Init submodules inside main/apotris (git clone only)
         shell: pwsh
         run: |
-          if (Test-Path "main/apotris/.gitmodules") {
+          if ((Test-Path "main/apotris/.gitmodules") -and (Test-Path "main/apotris/.git")) {
             git -C main/apotris submodule update --init --recursive
           }
 
@@ -63,6 +64,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install Meson and Ninja
+        shell: pwsh
         run: python -m pip install --upgrade pip meson ninja
 
       - name: Set up Android SDK + NDK 26.1
@@ -75,9 +77,14 @@ jobs:
         run: |
           $sdk = $env:ANDROID_SDK_ROOT
           if ([string]::IsNullOrWhiteSpace($sdk)) { throw "ANDROID_SDK_ROOT not set after setup-android" }
-          $ndk = Join-Path $sdk "ndk\26.1.10909125"
-          if (-not (Test-Path $ndk)) { throw "NDK not found at $ndk" }
-          "ANDROID_NDK_HOME=$ndk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $ndkRoot = Join-Path $sdk "ndk"
+          if (-not (Test-Path $ndkRoot)) { throw "ndk folder missing under SDK: $ndkRoot" }
+          $ndk = Get-ChildItem $ndkRoot -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^26\.' } | Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $ndk) { $ndk = Get-ChildItem $ndkRoot -Directory | Sort-Object Name -Descending | Select-Object -First 1 }
+          if (-not $ndk) { throw "No NDK under $ndkRoot" }
+          $ndkFull = $ndk.FullName
+          Write-Host "Using NDK: $ndkFull"
+          "ANDROID_NDK_HOME=$ndkFull" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Restore cached CI keystore
         id: ci-ks
@@ -105,6 +112,7 @@ jobs:
           SECRET_ALIAS: ${{ secrets.APOTRIS_KEY_ALIAS }}
           SECRET_KEY_PASS: ${{ secrets.APOTRIS_KEY_PASS }}
         run: |
+          Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
           Set-Location $env:GITHUB_WORKSPACE
           if ($env:SECRET_JKS_B64) {
             $out = Join-Path $PWD "signing-release.jks"
@@ -130,7 +138,8 @@ jobs:
 
   universal:
     name: Universal (multi-ABI) APK
-    if: github.event_name == 'workflow_dispatch' && inputs.build_universal
+    # Boolean workflow_dispatch inputs are strings in github.event.inputs ('true' / 'false')
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_universal == 'true'
     runs-on: windows-latest
     timeout-minutes: 240
 
@@ -139,10 +148,10 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Init submodules inside main/apotris (if present)
+      - name: Init submodules inside main/apotris (git clone only)
         shell: pwsh
         run: |
-          if (Test-Path "main/apotris/.gitmodules") {
+          if ((Test-Path "main/apotris/.gitmodules") -and (Test-Path "main/apotris/.git")) {
             git -C main/apotris submodule update --init --recursive
           }
 
@@ -160,6 +169,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install Meson and Ninja
+        shell: pwsh
         run: python -m pip install --upgrade pip meson ninja
 
       - name: Set up Android SDK + NDK 26.1
@@ -172,9 +182,14 @@ jobs:
         run: |
           $sdk = $env:ANDROID_SDK_ROOT
           if ([string]::IsNullOrWhiteSpace($sdk)) { throw "ANDROID_SDK_ROOT not set" }
-          $ndk = Join-Path $sdk "ndk\26.1.10909125"
-          if (-not (Test-Path $ndk)) { throw "NDK not found at $ndk" }
-          "ANDROID_NDK_HOME=$ndk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $ndkRoot = Join-Path $sdk "ndk"
+          if (-not (Test-Path $ndkRoot)) { throw "ndk folder missing under SDK: $ndkRoot" }
+          $ndk = Get-ChildItem $ndkRoot -Directory | Where-Object { $_.Name -match '^26\.' } | Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $ndk) { $ndk = Get-ChildItem $ndkRoot -Directory | Sort-Object Name -Descending | Select-Object -First 1 }
+          if (-not $ndk) { throw "No NDK under $ndkRoot" }
+          $ndkFull = $ndk.FullName
+          Write-Host "Using NDK: $ndkFull"
+          "ANDROID_NDK_HOME=$ndkFull" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Restore cached CI keystore
         id: ci-ks-u
@@ -202,6 +217,7 @@ jobs:
           SECRET_ALIAS: ${{ secrets.APOTRIS_KEY_ALIAS }}
           SECRET_KEY_PASS: ${{ secrets.APOTRIS_KEY_PASS }}
         run: |
+          Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
           Set-Location $env:GITHUB_WORKSPACE
           if ($env:SECRET_JKS_B64) {
             $out = Join-Path $PWD "signing-release.jks"

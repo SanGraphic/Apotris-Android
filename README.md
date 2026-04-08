@@ -75,6 +75,8 @@ Pre-built signed APKs may be published on the [Releases](../../releases) page.
 
 If you do not add secrets, CI uses a **cached debug-style keystore** (`changeme` passwords) so APKs are installable for testing; consecutive runs reuse the same key via Actions cache. For **Play-style signing**, add repository secrets: `APOTRIS_KEYSTORE_B64` (base64 of your `.jks`), `APOTRIS_KEYSTORE_PASS`, `APOTRIS_KEY_ALIAS`, `APOTRIS_KEY_PASS`.
 
+**If the workflow failed:** this repo vendors `main/apotris` without a nested `.git`, so CI **must not** run `git submodule` inside that folder (older workflows did and failed). The workflow also resolves **NDK 26.x** under `$ANDROID_SDK_ROOT/ndk` in case the exact patch folder name differs from `26.1.10909125`. The optional universal job only runs when you use **Run workflow** and set **Also build multi-ABI universal APK** to true (boolean inputs are compared as the string `true` in GitHub’s API).
+
 ---
 
 ## Building from source
