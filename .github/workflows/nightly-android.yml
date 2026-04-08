@@ -289,6 +289,44 @@ jobs:
           fi
 
           ls -la release-assets
+
+      # Release body uses releases/download/nightly/... (attached assets), not repo paths.
+      - name: Write nightly release body
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO='${{ github.repository }}'
+          BASE="https://github.com/${REPO}/releases/download/nightly"
+          WF="https://github.com/${REPO}/actions/workflows/nightly-android.yml"
+          BADGE_ARM64='https://img.shields.io/badge/Download-apotris--arm64--v8a.apk-3DDC84?style=for-the-badge&logo=android&logoColor=white'
+          BADGE_UNIV='https://img.shields.io/badge/Download-apotris--universal.apk-3DDC84?style=for-the-badge&logo=android&logoColor=white'
+          {
+            echo '## Apotris Android — Nightly'
+            echo ''
+            echo '**Universal** APK with **arm64-v8a**, **armeabi-v7a**, **x86**, and **x86_64** native libraries. **arm64-only** APK (smaller; 64-bit devices only).'
+            echo ''
+            echo '### Download'
+            echo ''
+            echo "[![Download apotris-arm64-v8a.apk](${BADGE_ARM64})](${BASE}/apotris-arm64-v8a.apk)"
+            echo ''
+            echo ''
+            echo "[![Download apotris-universal.apk](${BADGE_UNIV})](${BASE}/apotris-universal.apk)"
+            echo ''
+            if [ ! -f release-assets/apotris-universal.apk ]; then
+              echo "*\`apotris-universal.apk\` is not attached to this release yet — the link above may 404 until you run [**Nightly Android build**](${WF}) with **Also build multi-ABI universal APK**.*"
+              echo ''
+            fi
+            echo '### Build'
+            echo ''
+            echo '- Universal: `build-universal.ps1`'
+            echo '- arm64-v8a: `build.ps1`'
+            echo '- Branch: `main`'
+            echo ''
+            echo '---'
+            echo ''
+            echo '*This **nightly** release is updated by CI from the latest `main` commit. Reinstall the APK to update. You may need to allow installs from unknown sources.*'
+          } > release-body.md
+
       - name: Point nightly tag at current commit
         run: |
           git config user.name "github-actions[bot]"
@@ -300,7 +338,7 @@ jobs:
         with:
           tag_name: nightly
           name: Apotris Android — Nightly
-          body_path: .github/nightly-release-notes.md
+          body_path: release-body.md
           files: release-assets/*.apk
           prerelease: true
           make_latest: false
