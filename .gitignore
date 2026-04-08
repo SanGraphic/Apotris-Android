@@ -1,6 +1,7 @@
 # Build outputs
 *.apk
 !releases/apotris-universal.apk
+!releases/apotris-arm64-v8a.apk
 *.aab
 *.so
 *.o

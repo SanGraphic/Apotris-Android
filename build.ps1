@@ -309,8 +309,28 @@ function Write-AndroidLocalProperties {
     $sdkRoot = if ($env:ANDROID_SDK_ROOT) { Normalize-DirPath $env:ANDROID_SDK_ROOT }
         elseif ($env:ANDROID_HOME) { Normalize-DirPath $env:ANDROID_HOME }
         else { $LOCAL_STUDIO_SDK }
+
+    if (-not (Test-Path $sdkRoot)) {
+        $ndkTry = $null
+        if ($env:ANDROID_NDK_HOME) {
+            $ndkTry = Normalize-DirPath $env:ANDROID_NDK_HOME
+        } elseif (Test-Path $NDK_VERSIONS_DIR) {
+            $pick = Get-ChildItem $NDK_VERSIONS_DIR -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
+            if ($pick) { $ndkTry = $pick.FullName }
+        }
+        if ($ndkTry -and (Test-Path $ndkTry)) {
+            $sdkFromNdk = Split-Path (Split-Path $ndkTry)
+            if (Test-Path $sdkFromNdk) { $sdkRoot = Normalize-DirPath $sdkFromNdk }
+        }
+    }
+
+    if (-not (Test-Path $sdkRoot)) {
+        Fail ("Android SDK not found. Set ANDROID_HOME / ANDROID_SDK_ROOT, or install SDK; tried parent of NDK under $NDK_VERSIONS_DIR.")
+    }
+
     $sdkUnix = $sdkRoot.Replace('\', '/')
     "sdk.dir=$sdkUnix" | Set-Content -Path (Join-Path $PROJECT_DIR "local.properties") -Encoding ASCII
+    Ok "local.properties sdk.dir=$sdkUnix"
 }
 
 # ---------------------------------------------------------------------------
