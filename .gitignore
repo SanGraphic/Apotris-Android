@@ -1,5 +1,6 @@
 # Build outputs
 *.apk
+!releases/apotris-universal.apk
 *.aab
 *.so
 *.o
