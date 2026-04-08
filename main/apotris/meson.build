@@ -231,14 +231,24 @@ if host_machine.system() != 'gba' and host_machine.system() != 'n3ds'
         soloud = dependency('SoLoud', static : true, default_options : ['default_library=static'], fallback : ['SoLoud', 'soloud_dep'])
     endif
 
+    # Android libmain.so: lld only pulls .o from static .a on demand; SDL's C++ hid backend and
+    # Tilengine objects can be skipped, leaving PLATFORM_hid_* / TLN_* undefined. Meson >= 1.2
+    # can force whole-archive semantics per dependency.
+    tilengine_link = tilengine
+    sdl2_link = sdl2_dep
+    if host_machine.system() == 'android' and meson.version().version_compare('>=1.2.0')
+        tilengine_link = tilengine.as_link_whole()
+        sdl2_link = sdl2_dep.as_link_whole()
+    endif
+
     dependencies = [
         dependency('threads'),
         ogg,
         openmpt,
         sdl_mixer,
         opus,
-        tilengine,
-        sdl2_dep,
+        tilengine_link,
+        sdl2_link,
         soloud,
     ]
 
