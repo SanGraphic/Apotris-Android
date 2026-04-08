@@ -7,8 +7,11 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $subprojects = Join-Path $repoRoot "main\apotris\subprojects"
 
+# Paths match main/apotris/.gitmodules (Meson subproject names: general-tools, openmpt, SoLoud).
 $repos = @(
-    @{ Name = "general-tools"; Url = "https://gitea.com/Apotris/general-tools.git"; Branch = "main" }
+    @{ Name = "general-tools"; Url = "https://gitea.com/Apotris/general-tools.git"; Branch = "main" },
+    @{ Name = "openmpt";       Url = "https://gitea.com/Apotris/libopenmpt.git"; Branch = "main" },
+    @{ Name = "SoLoud";        Url = "https://gitea.com/Apotris/SoLoud.git";     Branch = "main" }
 )
 
 foreach ($r in $repos) {
