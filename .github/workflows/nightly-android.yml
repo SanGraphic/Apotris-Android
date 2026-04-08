@@ -305,5 +305,3 @@ jobs:
           prerelease: true
           make_latest: false
           allow_updates: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
