@@ -303,7 +303,7 @@ jobs:
           body_path: .github/nightly-release-notes.md
           files: release-assets/*.apk
           prerelease: true
-          make_latest: true
-          allowUpdates: true
+          make_latest: false
+          allow_updates: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
