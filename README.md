@@ -64,8 +64,6 @@ Apotris is a feature-rich block stacking game originally built for the Game Boy 
 
 ## Downloads
 
-[![GitHub downloads](https://img.shields.io/github/downloads/SanGraphic/Apotris-Android/total)](https://github.com/SanGraphic/Apotris-Android/releases/tag/nightly)
-
 **Pre-built signed APKs:** [**Apotris Android — Nightly**](https://github.com/SanGraphic/Apotris-Android/releases/tag/nightly) (`nightly` tag). Each successful [Nightly Android build](.github/workflows/nightly-android.yml) refreshes that release with **`apotris-arm64-v8a.apk`**; when you run the workflow manually with **Also build multi-ABI universal APK**, **`apotris-universal.apk`** is attached as well.
 
 **CI artifacts:** the same workflow also uploads APKs under **Actions → Nightly Android build → latest run → Artifacts** (handy if you need a build that is not on the release yet).
