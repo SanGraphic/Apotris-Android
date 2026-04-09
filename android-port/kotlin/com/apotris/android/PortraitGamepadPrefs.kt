@@ -9,7 +9,7 @@ import com.swordfish.radialgamepad.library.config.RadialGamePadTheme
  * Portrait-only gamepad look + global scale/alpha. Stored in [PREFS_NAME] alongside overlay_layout keys.
  */
 data class PortraitGamepadAppear(
-    val presetId: String = GamepadThemePresets.ID_CLASSIC,
+    val presetId: String = GamepadThemePresets.ID_APOTRIS,
     val customPrimary: Int = Color.parseColor("#9B6DFF"),
     val customPadBackground: Int = Color.parseColor("#2A1A45"),
     val customStrokeDp: Float = 2.5f,
@@ -37,8 +37,8 @@ object PortraitGamepadPrefs {
     fun load(context: Context): PortraitGamepadAppear {
         val p = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return PortraitGamepadAppear(
-            presetId = p.getString(KEY_PRESET, GamepadThemePresets.ID_CLASSIC)
-                ?: GamepadThemePresets.ID_CLASSIC,
+            presetId = p.getString(KEY_PRESET, GamepadThemePresets.ID_APOTRIS)
+                ?: GamepadThemePresets.ID_APOTRIS,
             customPrimary = p.getInt(KEY_CUSTOM_PRIMARY, Color.parseColor("#9B6DFF")),
             customPadBackground = p.getInt(KEY_CUSTOM_PAD_BG, Color.parseColor("#2A1A45")),
             customStrokeDp = p.getFloat(KEY_CUSTOM_STROKE_DP, 2.5f).coerceIn(1f, 5f),
