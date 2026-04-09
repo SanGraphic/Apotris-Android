@@ -8,22 +8,21 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import com.swordfish.radialgamepad.library.RadialGamePad
-import com.swordfish.radialgamepad.library.config.ButtonConfig
-import com.swordfish.radialgamepad.library.config.CrossConfig
-import com.swordfish.radialgamepad.library.config.PrimaryDialConfig
-import com.swordfish.radialgamepad.library.config.RadialGamePadConfig
-import com.swordfish.radialgamepad.library.config.SecondaryDialConfig
 import com.swordfish.radialgamepad.library.event.Event
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
+import kotlin.jvm.JvmOverloads
 import org.libsdl.app.SDLActivity
 
 /**
  * Virtual controls + physical controller visibility (parity with shipped com.example.apotris).
+ * Portrait: left/right pads sit in two equal-width columns (same dial sizing as classic layout);
+ * parents use clipChildren=false so controls can extend slightly into the center without hard clipping.
  */
 class TouchOverlayManager(private val activity: Activity) {
 
@@ -33,60 +32,149 @@ class TouchOverlayManager(private val activity: Activity) {
     private val landscapeEditor = OverlayEditor(activity, "landscape")
     private val portraitEditor = OverlayEditor(activity, "portrait")
 
-    private companion object Btn {
-        const val BTN_A = 0 // SDL_CONTROLLER_BUTTON_A
-        const val BTN_B = 1
-        const val BTN_SELECT = 4
-        const val BTN_START = 6
-        const val BTN_L = 9
-        const val BTN_R = 10
-        const val BTN_UP = 11
-        const val BTN_DOWN = 12
-        const val BTN_LEFT = 13
-        const val BTN_RIGHT = 14
-    }
-
-    private val leftConfig = RadialGamePadConfig(
-        sockets = 12,
-        primaryDial = PrimaryDialConfig.Cross(CrossConfig(id = 0)),
-        secondaryDials = listOf(
-            SecondaryDialConfig.SingleButton(4, 1f, 0f, ButtonConfig(BTN_L, "L")),
-            SecondaryDialConfig.SingleButton(2, 1f, 0f, ButtonConfig(BTN_SELECT, "SELECT"))
-        )
-    )
-
-    private val rightConfig = RadialGamePadConfig(
-        sockets = 12,
-        primaryDial = PrimaryDialConfig.PrimaryButtons(
-            dials = listOf(
-                ButtonConfig(BTN_A, "A"),
-                ButtonConfig(BTN_B, "B")
-            ),
-            rotationInDegrees = -30f
-        ),
-        secondaryDials = listOf(
-            SecondaryDialConfig.SingleButton(2, 1f, 0f, ButtonConfig(BTN_R, "R")),
-            SecondaryDialConfig.SingleButton(4, 1f, 0f, ButtonConfig(BTN_START, "START"))
-        )
-    )
-
     private var controllerActive = false
     private var overlayRoot: FrameLayout? = null
+    private var leftPadHost: FrameLayout? = null
+    private var rightPadHost: FrameLayout? = null
+    private var padsRow: LinearLayout? = null
     private var leftPad: RadialGamePad? = null
     private var rightPad: RadialGamePad? = null
     private var currentEditor: OverlayEditor? = null
+    private var eventsJob: Job? = null
+    /** Portrait: over game surface — edit UI (spinner, sliders) is shown here. */
+    private var portraitGameEditHost: FrameLayout? = null
 
-    fun attach(parentLayout: ViewGroup) {
+    private val landscapeConfigs = GamepadLayoutFactory.landscapeDefaults()
+
+    init {
+        portraitEditor.onPortraitPadsRebuild = {
+            activity.runOnUiThread {
+                rebuildPortraitPadsIfNeeded()
+            }
+        }
+    }
+
+    @JvmOverloads
+    fun attach(parentLayout: ViewGroup, portraitGameEditHost: FrameLayout? = null) {
         val ctx = activity
-        val isPortrait = ctx.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
+        val isPortrait = ctx.resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT
+
+        this.portraitGameEditHost = if (isPortrait) portraitGameEditHost else null
 
         val root = FrameLayout(ctx).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
+            clipChildren = false
         }
         overlayRoot = root
+
+        val leftContainer = FrameLayout(ctx).apply {
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+            clipChildren = false
+        }
+        val rightContainer = FrameLayout(ctx).apply {
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+            clipChildren = false
+        }
+        leftPadHost = leftContainer
+        rightPadHost = rightContainer
+
+        val row = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            clipChildren = false
+        }
+        padsRow = row
+        row.addView(leftContainer)
+        row.addView(rightContainer)
+        root.addView(row)
+
+        parentLayout.addView(
+            root,
+            ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        val editor = if (isPortrait) portraitEditor else landscapeEditor
+        currentEditor = editor
+        editor.load()
+
+        if (isPortrait) {
+            installPortraitPads()
+        } else {
+            installLandscapePads()
+        }
+
+        if (controllerActive) {
+            root.visibility = View.GONE
+        } else {
+            root.visibility = View.VISIBLE
+        }
+    }
+
+    private fun portraitAppearForPads(): PortraitGamepadAppear {
+        return if (portraitEditor.isEditing()) {
+            portraitEditor.portraitAppearDraft
+        } else {
+            PortraitGamepadPrefs.load(activity)
+        }
+    }
+
+    private fun installLandscapePads() {
+        val ctx = activity
+        val leftContainer = leftPadHost ?: return
+        val rightContainer = rightPadHost ?: return
+        eventsJob?.cancel()
+        leftContainer.removeAllViews()
+        rightContainer.removeAllViews()
+
+        val left = RadialGamePad(landscapeConfigs.first, 8f, ctx).apply {
+            gravityX = -1f
+            gravityY = 1f
+        }
+        val right = RadialGamePad(landscapeConfigs.second, 8f, ctx).apply {
+            gravityX = 1f
+            gravityY = 1f
+        }
+        leftPad = left
+        rightPad = right
+        leftContainer.addView(
+            left,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+        rightContainer.addView(
+            right,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+        landscapeEditor.applyTo(left, right)
+        left.alpha = 1f
+        right.alpha = 1f
+        subscribeEvents(left, right)
+    }
+
+    private fun installPortraitPads() {
+        val ctx = activity
+        val leftContainer = leftPadHost ?: return
+        val rightContainer = rightPadHost ?: return
+        eventsJob?.cancel()
+        leftContainer.removeAllViews()
+        rightContainer.removeAllViews()
+
+        val appear = portraitAppearForPads()
+        val (leftConfig, rightConfig) = GamepadLayoutFactory.portraitConfigs(appear)
 
         val left = RadialGamePad(leftConfig, 8f, ctx).apply {
             gravityX = -1f
@@ -98,51 +186,41 @@ class TouchOverlayManager(private val activity: Activity) {
         }
         leftPad = left
         rightPad = right
-
-        val leftContainer = FrameLayout(ctx).apply {
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
-        }
-        val rightContainer = FrameLayout(ctx).apply {
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
-        }
-        leftContainer.addView(left, FrameLayout.LayoutParams(
+        val lp = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
-        ))
-        rightContainer.addView(right, FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        ))
+        )
+        leftContainer.addView(left, lp)
+        rightContainer.addView(right, lp)
+        portraitEditor.applyTo(left, right)
+        applyPortraitIdleAlpha(left, right, appear)
+        subscribeEvents(left, right)
+    }
 
-        val row = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        }
-        row.addView(leftContainer)
-        row.addView(rightContainer)
-        root.addView(row)
-        parentLayout.addView(root, ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        ))
+    private fun applyPortraitIdleAlpha(left: RadialGamePad, right: RadialGamePad, appear: PortraitGamepadAppear) {
+        left.alpha = appear.alpha
+        right.alpha = appear.alpha
+    }
 
-        val editor = if (isPortrait) portraitEditor else landscapeEditor
-        currentEditor = editor
-        editor.load()
-        editor.applyTo(left, right)
-
-        if (controllerActive) {
-            root.visibility = View.GONE
-        } else {
-            root.visibility = View.VISIBLE
-        }
-
-        merge(left.events(), right.events())
+    private fun subscribeEvents(left: RadialGamePad, right: RadialGamePad) {
+        val root = overlayRoot ?: return
+        eventsJob = merge(left.events(), right.events())
             .onEach { event -> handleEvent(event, root, left, right) }
             .launchIn(scope)
+    }
+
+    fun rebuildPortraitPadsIfNeeded() {
+        if (activity.resources.configuration.orientation != Configuration.ORIENTATION_PORTRAIT) return
+        if (overlayRoot == null) return
+        val editing = portraitEditor.isEditing()
+
+        installPortraitPads()
+
+        val newLeft = leftPad ?: return
+        val newRight = rightPad ?: return
+        if (editing) {
+            portraitEditor.refreshEditPads(overlayRoot!!, newLeft, newRight)
+        }
     }
 
     private fun handleEvent(event: Event, root: FrameLayout, left: RadialGamePad, right: RadialGamePad) {
@@ -152,7 +230,12 @@ class TouchOverlayManager(private val activity: Activity) {
                 if (editor.isEditing()) return
                 if (event.action == KeyEvent.ACTION_DOWN) {
                     editor.onButtonDown {
-                        editor.enterEditMode(root, left, right)
+                        val gameHost = portraitGameEditHost
+                        if (activity.resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT && gameHost != null) {
+                            editor.enterEditMode(root, gameHost, left, right)
+                        } else {
+                            editor.enterEditMode(root, null, left, right)
+                        }
                     }
                     SDLActivity.nativeVirtualButtonEvent(event.id, true)
                 } else {
@@ -162,13 +245,18 @@ class TouchOverlayManager(private val activity: Activity) {
             }
             is Event.Direction -> {
                 if (editor.isEditing()) return
-                listOf(BTN_UP, BTN_DOWN, BTN_LEFT, BTN_RIGHT).forEach {
+                listOf(
+                    VirtualGamepadMapping.BTN_UP,
+                    VirtualGamepadMapping.BTN_DOWN,
+                    VirtualGamepadMapping.BTN_LEFT,
+                    VirtualGamepadMapping.BTN_RIGHT
+                ).forEach {
                     SDLActivity.nativeVirtualButtonEvent(it, false)
                 }
-                if (event.yAxis < -0.5f) SDLActivity.nativeVirtualButtonEvent(BTN_UP, true)
-                if (event.yAxis > 0.5f) SDLActivity.nativeVirtualButtonEvent(BTN_DOWN, true)
-                if (event.xAxis < -0.5f) SDLActivity.nativeVirtualButtonEvent(BTN_LEFT, true)
-                if (event.xAxis > 0.5f) SDLActivity.nativeVirtualButtonEvent(BTN_RIGHT, true)
+                if (event.yAxis < -0.5f) SDLActivity.nativeVirtualButtonEvent(VirtualGamepadMapping.BTN_UP, true)
+                if (event.yAxis > 0.5f) SDLActivity.nativeVirtualButtonEvent(VirtualGamepadMapping.BTN_DOWN, true)
+                if (event.xAxis < -0.5f) SDLActivity.nativeVirtualButtonEvent(VirtualGamepadMapping.BTN_LEFT, true)
+                if (event.xAxis > 0.5f) SDLActivity.nativeVirtualButtonEvent(VirtualGamepadMapping.BTN_RIGHT, true)
             }
             else -> {}
         }
@@ -217,11 +305,19 @@ class TouchOverlayManager(private val activity: Activity) {
     }
 
     fun detach() {
+        portraitEditor.detachCleanup()
+        landscapeEditor.detachCleanup()
+        eventsJob?.cancel()
+        eventsJob = null
         val r = overlayRoot ?: return
         (r.parent as? ViewGroup)?.removeView(r)
         overlayRoot = null
+        leftPadHost = null
+        rightPadHost = null
+        padsRow = null
         leftPad = null
         rightPad = null
         currentEditor = null
+        portraitGameEditHost = null
     }
 }

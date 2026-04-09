@@ -17,6 +17,7 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.hardware.Sensor;
 import android.net.Uri;
 import android.os.Build;
@@ -537,12 +538,39 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
             gameContainer.setBackgroundColor(Color.BLACK);
             gameContainer.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
             gameContainer.addView(mSurface, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            FrameLayout gameEditOverlay = new FrameLayout(this);
+            gameEditOverlay.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            gameEditOverlay.setVisibility(View.GONE);
+            gameEditOverlay.setClickable(true);
+            gameContainer.addView(gameEditOverlay);
             portrait.addView(gameContainer);
-            FrameLayout controlsContainer = new FrameLayout(this);
-            controlsContainer.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
-            portrait.addView(controlsContainer);
+            LinearLayout controlsColumn = new LinearLayout(this);
+            controlsColumn.setOrientation(LinearLayout.VERTICAL);
+            controlsColumn.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
+            GradientDrawable controlsBg = new GradientDrawable(
+                    GradientDrawable.Orientation.TOP_BOTTOM,
+                    new int[] { 0xFF000000, 0xFF14101C });
+            controlsColumn.setBackground(controlsBg);
+            View controlsTopLine = new View(this);
+            controlsTopLine.setBackgroundColor(Color.parseColor("#6B4EAA"));
+            int lineH = Math.max(2, Math.round(2f * getResources().getDisplayMetrics().density));
+            controlsTopLine.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, lineH));
+            FrameLayout padHost = new FrameLayout(this);
+            padHost.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
+                padHost.setOnApplyWindowInsetsListener((v, insets) -> {
+                    v.setPadding(0, 0, 0, insets.getSystemWindowInsetBottom());
+                    return insets;
+                });
+            }
+            controlsColumn.addView(controlsTopLine);
+            controlsColumn.addView(padHost);
+            portrait.addView(controlsColumn);
             mLayout.addView(portrait, new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-            mTouchOverlayManager.attach(controlsContainer);
+            mTouchOverlayManager.attach(padHost, gameEditOverlay);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
+                padHost.requestApplyInsets();
+            }
             return;
         }
         nativeSetPortraitMode(false);

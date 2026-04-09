@@ -1,0 +1,43 @@
+# Perfetto trace for game-style profiling: frame timeline, CPU/processes, optional power.
+# android-perf-snapshot.ps1 sends this on perfetto stdin (-c -) and reads the trace from stdout (-o -) on the host.
+# On Windows, adb shell injects CRLF into binary stdout; the script strips 0D 0A back to 0A before saving the .pb.
+# Open the .pb in https://ui.perfetto.dev/
+#
+# Note: android.power counters vary by device/OEM; if perfetto errors, remove the android.power data_sources block.
+
+duration_ms: 30000
+
+buffers {
+  size_kb: 65536
+  fill_policy: DISCARD
+}
+
+data_sources {
+  config {
+    name: "android.packages_list"
+  }
+}
+
+data_sources {
+  config {
+    name: "linux.process_stats"
+    process_stats_config {
+      scan_all_processes_on_start: true
+    }
+  }
+}
+
+data_sources {
+  config {
+    name: "android.surfaceflinger.frametimeline"
+  }
+}
+
+data_sources {
+  config {
+    name: "android.power"
+    android_power_config {
+      battery_poll_ms: 250
+    }
+  }
+}

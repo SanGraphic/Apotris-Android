@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="12"
+    android:viewportHeight="12">
+    <!-- Blocky play / start triangle -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M2,1h2v2H2V1z M4,2h2v2H4V2z M6,3h2v2H6V3z M4,6h2v2H4V6z M2,7h2v2H2V7z M6,7h2v2H6V7z M4,8h2v2H4V8z" />
+</vector>

@@ -81,3 +81,6 @@ main/apotris/build_log.txt
 
 # Local logcat / capture files (never commit — may contain private device or account data)
 apotris-logcat*
+
+# Local adb/Perfetto profiling captures (not for repo)
+android-perf-snapshots/
