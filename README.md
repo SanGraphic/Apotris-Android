@@ -64,20 +64,20 @@ Apotris is a feature-rich block stacking game originally built for the Game Boy 
 
 ## Downloads
 
-**Pre-built signed APKs:** [**Apotris Android — Nightly**](https://github.com/SanGraphic/Apotris-Android/releases/tag/nightly) (`nightly` tag). Each successful [Nightly Android build](.github/workflows/nightly-android.yml) refreshes that release with **`apotris-arm64-v8a.apk`**; when you run the workflow manually with **Also build multi-ABI universal APK**, **`apotris-universal.apk`** is attached as well.
+**Pre-built signed APKs:** [**Apotris Android — Nightly**](https://github.com/SanGraphic/Apotris-Android/releases/tag/nightly) (`nightly` tag). Each successful [Nightly Android build](.github/workflows/nightly-android.yml) refreshes that release with **`apotris-arm64-v8a.apk`** and **`apotris-universal.apk`** (scheduled cron runs build both). Manual **Run workflow** can omit the universal job unless **Also build multi-ABI universal APK** is enabled.
 
 **CI artifacts:** the same workflow also uploads APKs under **Actions → Nightly Android build → latest run → Artifacts** (handy if you need a build that is not on the release yet).
 
 | Asset on nightly release | Description |
 |---|---|
 | **`apotris-arm64-v8a.apk`** | 64-bit ARM only — most modern phones |
-| **`apotris-universal.apk`** | Multi-ABI fat APK — see **Supported devices** (only when the universal job ran) |
+| **`apotris-universal.apk`** | Multi-ABI fat APK — see **Supported devices** (scheduled nightlies always; manual runs only if that option is checked, or if the universal job failed) |
 
 ### CI signing (optional)
 
 If you do not add secrets, CI uses a **cached debug-style keystore** (`changeme` passwords) so APKs are installable for testing; consecutive runs reuse the same key via Actions cache. For **Play-style signing**, add repository secrets: `APOTRIS_KEYSTORE_B64` (base64 of your `.jks`), `APOTRIS_KEYSTORE_PASS`, `APOTRIS_KEY_ALIAS`, `APOTRIS_KEY_PASS`.
 
-**If the workflow failed:** this repo vendors `main/apotris` without a nested `.git`, so CI **must not** run `git submodule` inside that folder (older workflows did and failed). **Gitea-only subprojects** (`general-tools`, **`openmpt`** / libopenmpt, **`SoLoud`**) are listed in `main/apotris/.gitmodules` but **not** committed here (no Meson wrap for those names). CI runs **`tools/ci/sync-apotris-subprojects.ps1`** to shallow-clone them before Meson. The workflow resolves **NDK 26.x** under `$ANDROID_SDK_ROOT/ndk` if the patch folder name varies. The optional universal job only runs when you use **Run workflow** and set **Also build multi-ABI universal APK** to true (boolean inputs are compared as the string `true` in GitHub’s API).
+**If the workflow failed:** this repo vendors `main/apotris` without a nested `.git`, so CI **must not** run `git submodule` inside that folder (older workflows did and failed). **Gitea-only subprojects** (`general-tools`, **`openmpt`** / libopenmpt, **`SoLoud`**) are listed in `main/apotris/.gitmodules` but **not** committed here (no Meson wrap for those names). CI runs **`tools/ci/sync-apotris-subprojects.ps1`** to shallow-clone them before Meson. The workflow resolves **NDK 26.x** under `$ANDROID_SDK_ROOT/ndk` if the patch folder name varies. **Scheduled** nightlies run the **universal** (multi-ABI) job automatically; **workflow_dispatch** still uses the **Also build multi-ABI universal APK** checkbox (GitHub compares that boolean as the string `true`).
 
 ---
 

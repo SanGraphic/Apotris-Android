@@ -146,8 +146,8 @@ jobs:
 
   universal:
     name: Universal (multi-ABI) APK
-    # Boolean workflow_dispatch inputs are strings in github.event.inputs ('true' / 'false')
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_universal == 'true'
+    # Scheduled nightly always builds universal; manual runs only when requested (boolean inputs are 'true' / 'false' strings).
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.build_universal == 'true')
     runs-on: windows-latest
     timeout-minutes: 240
 
@@ -260,7 +260,8 @@ jobs:
     name: Publish nightly GitHub Release
     runs-on: ubuntu-latest
     needs: [arm64, universal]
-    if: always() && needs.arm64.result == 'success' && (needs.universal.result == 'success' || needs.universal.result == 'skipped')
+    # arm64 must succeed; universal may be skipped (manual without checkbox), succeeded, or failed (still publish arm64-only nightly).
+    if: always() && needs.arm64.result == 'success' && (needs.universal.result == 'success' || needs.universal.result == 'skipped' || needs.universal.result == 'failure')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -313,7 +314,7 @@ jobs:
             echo "[![Download apotris-universal.apk](${BADGE_UNIV})](${BASE}/apotris-universal.apk)"
             echo ''
             if [ ! -f release-assets/apotris-universal.apk ]; then
-              echo "*\`apotris-universal.apk\` is not attached to this release yet — the link above may 404 until you run [**Nightly Android build**](${WF}) with **Also build multi-ABI universal APK**.*"
+              echo "*\`apotris-universal.apk\` is missing from this run (universal job skipped, failed, or did not produce an APK). Scheduled nightlies normally include it; for manual runs, enable **Also build multi-ABI universal APK**.*"
               echo ''
             fi
             echo '### Build'
