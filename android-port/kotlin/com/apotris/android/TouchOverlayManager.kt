@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
 import kotlin.jvm.JvmOverloads
+import kotlin.math.abs
 import org.libsdl.app.SDLActivity
 
 /**
@@ -253,10 +254,7 @@ class TouchOverlayManager(private val activity: Activity) {
                 ).forEach {
                     SDLActivity.nativeVirtualButtonEvent(it, false)
                 }
-                if (event.yAxis < -0.5f) SDLActivity.nativeVirtualButtonEvent(VirtualGamepadMapping.BTN_UP, true)
-                if (event.yAxis > 0.5f) SDLActivity.nativeVirtualButtonEvent(VirtualGamepadMapping.BTN_DOWN, true)
-                if (event.xAxis < -0.5f) SDLActivity.nativeVirtualButtonEvent(VirtualGamepadMapping.BTN_LEFT, true)
-                if (event.xAxis > 0.5f) SDLActivity.nativeVirtualButtonEvent(VirtualGamepadMapping.BTN_RIGHT, true)
+                applyCrossDirectionDiagonalLock(event.xAxis, event.yAxis)
             }
             else -> {}
         }
@@ -319,5 +317,34 @@ class TouchOverlayManager(private val activity: Activity) {
         rightPad = null
         currentEditor = null
         portraitGameEditHost = null
+    }
+
+    /**
+     * Maps the cross to at most one cardinal direction: when both axes are past the deadzone,
+     * only the stronger axis registers (no simultaneous e.g. up+left).
+     */
+    private fun applyCrossDirectionDiagonalLock(xAxis: Float, yAxis: Float) {
+        val ax = abs(xAxis)
+        val ay = abs(yAxis)
+        val hStrong = ax > DIRECTION_THRESHOLD
+        val vStrong = ay > DIRECTION_THRESHOLD
+        val id = when {
+            hStrong && vStrong ->
+                if (ax >= ay) {
+                    if (xAxis < 0f) VirtualGamepadMapping.BTN_LEFT else VirtualGamepadMapping.BTN_RIGHT
+                } else {
+                    if (yAxis < 0f) VirtualGamepadMapping.BTN_UP else VirtualGamepadMapping.BTN_DOWN
+                }
+            hStrong ->
+                if (xAxis < 0f) VirtualGamepadMapping.BTN_LEFT else VirtualGamepadMapping.BTN_RIGHT
+            vStrong ->
+                if (yAxis < 0f) VirtualGamepadMapping.BTN_UP else VirtualGamepadMapping.BTN_DOWN
+            else -> return
+        }
+        SDLActivity.nativeVirtualButtonEvent(id, true)
+    }
+
+    private companion object {
+        private const val DIRECTION_THRESHOLD = 0.5f
     }
 }
