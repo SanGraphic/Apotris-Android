@@ -75,9 +75,14 @@ function Get-ApotrisNdkRoot {
     if (-not (Test-Path $NDK_VERSIONS_DIR)) {
         Fail "NDK folder missing: $NDK_VERSIONS_DIR"
     }
-    $pick = Get-ChildItem $NDK_VERSIONS_DIR -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
-    if (-not $pick) { Fail "No NDK versions under $NDK_VERSIONS_DIR" }
-    return $pick.FullName
+    $dirs = @(Get-ChildItem $NDK_VERSIONS_DIR -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending)
+    if ($dirs.Count -eq 0) { Fail "No NDK versions under $NDK_VERSIONS_DIR" }
+    # Prefer NDK 26.x: SDL 2.28.5 uses ALooper_pollAll which was removed from
+    # NDK 29+ sysroot headers. NDK 26 has it natively; our shim covers NDK 29
+    # but 26 is the tested baseline. Mirrors the preference in build-universal.ps1.
+    $pref26 = $dirs | Where-Object { $_.Name -match '^26\.' } | Select-Object -First 1
+    if ($pref26) { return $pref26.FullName }
+    return $dirs[0].FullName
 }
 
 function Get-ApotrisNdkPrebuiltHostName([string]$NdkRoot) {

@@ -522,9 +522,28 @@ if (-not $SkipNative) {
         $cxxShared = Join-Path $prebuiltHost.FullName "sysroot\usr\lib\$($cfg.LibSubdir)\libc++_shared.so"
         if (Test-Path $cxxShared) {
             Copy-Item $cxxShared $jniAbi -Force
-            Ok "Copied libc++_shared.so"
+            Ok "Copied libc++_shared.so (from sysroot/$($cfg.LibSubdir))"
         } else {
-            Write-Host "    WARN: libc++_shared.so not at $cxxShared" -ForegroundColor Yellow
+            # Fallback: NDK layout can vary across versions (e.g. armeabi-v7a ships under
+            # arm-linux-androideabi/ which LibSubdir already captures, but some NDK releases
+            # place it one level up or under a different triple).  Do a targeted recursive
+            # search under the prebuilt sysroot to find the right one for this ABI.
+            $fallback = Get-ChildItem -Recurse (Join-Path $prebuiltHost.FullName "sysroot\usr\lib") `
+                -Filter "libc++_shared.so" -ErrorAction SilentlyContinue |
+                Where-Object { $_.DirectoryName -match [regex]::Escape($cfg.LibSubdir) } |
+                Select-Object -First 1
+            if (-not $fallback) {
+                # Last resort: any libc++_shared.so under the prebuilt tree for this ABI id
+                $fallback = Get-ChildItem -Recurse (Join-Path $prebuiltHost.FullName "sysroot") `
+                    -Filter "libc++_shared.so" -ErrorAction SilentlyContinue |
+                    Select-Object -First 1
+            }
+            if ($fallback) {
+                Copy-Item $fallback.FullName $jniAbi -Force
+                Ok "Copied libc++_shared.so (fallback from $($fallback.DirectoryName))"
+            } else {
+                Write-Host "    WARN: libc++_shared.so not found for $($cfg.Id) - app may crash on device" -ForegroundColor Yellow
+            }
         }
 
         $strip = Get-ChildItem -Recurse "$ndkRoot\toolchains\llvm\prebuilt" -Filter "llvm-strip.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
