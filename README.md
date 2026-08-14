@@ -2,7 +2,7 @@
 
 > **Unofficial Android port** — a passion project compilation of [Apotris](https://apotris.com) for Android, based on the latest upstream source as of **April 7, 2026**, compiled from the Linux ARM64 variant.
 
-**You can find OFFICIAL dev-ports on android from the real developers on [the Official Apotris Discord](https://discord.gg/eGZD7gbTMM)**
+**You can now find OFFICIAL Android Builds (dev builds) from the real developers on [the Official Apotris Discord](https://discord.gg/eGZD7gbTMM)**
 
 This is not affiliated with or endorsed by the original Apotris developer. All game code, mechanics, assets, and design belong to [akouzoukos](https://gitea.com/akouzoukos/apotris).
 
