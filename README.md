@@ -2,6 +2,8 @@
 
 > **Unofficial Android port** — a passion project compilation of [Apotris](https://apotris.com) for Android, based on the latest upstream source as of **April 7, 2026**, compiled from the Linux ARM64 variant.
 
+> You can find OFFICIAL dev-ports on android from the real developers on [the Official Apotris Discord](https://discord.gg/eGZD7gbTMM)
+
 This is not affiliated with or endorsed by the original Apotris developer. All game code, mechanics, assets, and design belong to [akouzoukos](https://gitea.com/akouzoukos/apotris).
 
 For a **technical map** of the current Android stack (native entry, GLES 2, touch overlay, scaling, assets), see [`parity.md`](parity.md). For **extra ABIs** (armeabi-v7a, x86, universal APK), see [`docs/android-multi-architecture-apk.md`](docs/android-multi-architecture-apk.md). For **shipped-APK reference** (JNI names, inventory), see [`docs/reimplementation/`](docs/reimplementation/).
